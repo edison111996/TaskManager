@@ -9,7 +9,6 @@ import { RolesPage } from "./pages/RolesPage";
 import { ModulesPage } from "./pages/ModulesPage";
 import { TasksPage } from "./pages/TasksPage";
 import { TaskDetailPage } from "./pages/TaskDetailPage";
-import { CalendarPage } from "./pages/CalendarPage";
 import { ReportsPage } from "./pages/ReportsPage";
 
 export default function App() {
@@ -31,7 +30,6 @@ export default function App() {
           <Route path="modules" element={<ModulesPage />} />
           <Route path="tasks" element={<TasksPage />} />
           <Route path="tasks/:id" element={<TaskDetailPage />} />
-          <Route path="calendar" element={<CalendarPage />} />
           <Route path="reports" element={<ReportsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

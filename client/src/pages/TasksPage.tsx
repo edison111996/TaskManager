@@ -10,6 +10,9 @@ import { listTasks, deleteTask, type TaskItemDto } from "../api/tasks";
 import { listAssignableUsers, type UserLookupDto } from "../api/users";
 import { STATUS_LABELS, STATUS_TONES } from "../utils/taskStatus";
 import { TaskFormModal } from "./TaskFormModal";
+import { TaskCalendarView } from "../components/TaskCalendarView";
+
+type ViewMode = "list" | "calendar";
 
 export function TasksPage() {
   const { showToast } = useToast();
@@ -21,6 +24,7 @@ export function TasksPage() {
   const [editingTask, setEditingTask] = useState<TaskItemDto | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
 
   const canCreate = hasPermission("Tasks:Create");
   const canEdit = hasPermission("Tasks:Edit");
@@ -56,58 +60,77 @@ export function TasksPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-slate-800">Tareas</h1>
-        {canCreate && <Button onClick={() => setIsCreating(true)}>+ Nueva tarea</Button>}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex rounded-lg border border-slate-300 p-0.5">
+            {(["list", "calendar"] as ViewMode[]).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${
+                  viewMode === mode ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                {mode === "list" ? "Lista" : "Calendario"}
+              </button>
+            ))}
+          </div>
+          {canCreate && <Button onClick={() => setIsCreating(true)}>+ Nueva tarea</Button>}
+        </div>
       </div>
 
       {error && <p className="text-red-600">{error}</p>}
 
-      <Table
-        rows={tasks}
-        getRowKey={(t) => t.id}
-        columns={[
-          {
-            header: "Título",
-            render: (t) => (
-              <Link to={`/tasks/${t.id}`} className="font-medium text-blue-600 hover:underline">
-                {t.title}
-              </Link>
-            ),
-          },
-          {
-            header: "Estado",
-            render: (t) => <Badge tone={STATUS_TONES[t.status]}>{STATUS_LABELS[t.status]}</Badge>,
-          },
-          { header: "Asignado a", render: (t) => `${t.assignedTo.firstName} ${t.assignedTo.lastName}` },
-          {
-            header: "Fecha límite",
-            render: (t) => (t.dueDate ? new Date(t.dueDate).toLocaleDateString() : "—"),
-          },
-          { header: "Comentarios", render: (t) => t.commentCount },
-          ...(canEdit || canDelete
-            ? [
-                {
-                  header: "",
-                  render: (t: TaskItemDto) => (
-                    <div className="flex gap-2">
-                      {canEdit && (
-                        <Button variant="secondary" onClick={() => setEditingTask(t)}>
-                          Editar
-                        </Button>
-                      )}
-                      {canDelete && (
-                        <Button variant="danger" isLoading={deletingId === t.id} onClick={() => handleDelete(t)}>
-                          Eliminar
-                        </Button>
-                      )}
-                    </div>
-                  ),
-                },
-              ]
-            : []),
-        ]}
-      />
+      {viewMode === "list" ? (
+        <Table
+          rows={tasks}
+          getRowKey={(t) => t.id}
+          columns={[
+            {
+              header: "Título",
+              render: (t) => (
+                <Link to={`/tasks/${t.id}`} className="font-medium text-blue-600 hover:underline">
+                  {t.title}
+                </Link>
+              ),
+            },
+            {
+              header: "Estado",
+              render: (t) => <Badge tone={STATUS_TONES[t.status]}>{STATUS_LABELS[t.status]}</Badge>,
+            },
+            { header: "Asignado a", render: (t) => `${t.assignedTo.firstName} ${t.assignedTo.lastName}` },
+            {
+              header: "Fecha límite",
+              render: (t) => (t.dueDate ? new Date(t.dueDate).toLocaleDateString() : "—"),
+            },
+            { header: "Comentarios", render: (t) => t.commentCount },
+            ...(canEdit || canDelete
+              ? [
+                  {
+                    header: "",
+                    render: (t: TaskItemDto) => (
+                      <div className="flex gap-2">
+                        {canEdit && (
+                          <Button variant="secondary" onClick={() => setEditingTask(t)}>
+                            Editar
+                          </Button>
+                        )}
+                        {canDelete && (
+                          <Button variant="danger" isLoading={deletingId === t.id} onClick={() => handleDelete(t)}>
+                            Eliminar
+                          </Button>
+                        )}
+                      </div>
+                    ),
+                  },
+                ]
+              : []),
+          ]}
+        />
+      ) : (
+        <TaskCalendarView tasks={tasks} />
+      )}
 
       {isCreating && <TaskFormModal users={users} onClose={() => setIsCreating(false)} onSaved={loadTasks} />}
 

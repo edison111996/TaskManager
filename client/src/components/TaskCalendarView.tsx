@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { listTasks, type TaskItemDto } from "../api/tasks";
-import { LoadingState } from "../components/LoadingState";
-import { Badge } from "../components/Badge";
+import type { TaskItemDto } from "../api/tasks";
+import { Badge } from "./Badge";
 import { STATUS_LABELS, STATUS_TONES } from "../utils/taskStatus";
 import { addDays, formatDateKey, getMonthGridDays, getWeekDays, isSameDay, isoDateKey } from "../utils/calendar";
 
@@ -12,17 +11,13 @@ type TasksByDay = Map<string, TaskItemDto[]>;
 const VIEW_LABELS: Record<ViewMode, string> = { day: "Día", week: "Semana", month: "Mes" };
 const WEEKDAY_LABELS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
-export function CalendarPage() {
-  const [tasks, setTasks] = useState<TaskItemDto[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+interface TaskCalendarViewProps {
+  tasks: TaskItemDto[];
+}
+
+export function TaskCalendarView({ tasks }: TaskCalendarViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("month");
   const [currentDate, setCurrentDate] = useState(new Date());
-
-  useEffect(() => {
-    listTasks()
-      .then(setTasks)
-      .finally(() => setIsLoading(false));
-  }, []);
 
   // Agrupa las tareas por día una sola vez (no en cada render de cada celda). Una
   // tarea sin dueDate ni startDate no tiene dónde ubicarse en el calendario, se ignora.
@@ -60,12 +55,25 @@ export function CalendarPage() {
       ? currentDate.toLocaleDateString("es-AR", { day: "numeric", month: "long", year: "numeric" })
       : currentDate.toLocaleDateString("es-AR", { month: "long", year: "numeric" });
 
-  if (isLoading) return <LoadingState />;
-
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-slate-800">Calendario</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={goPrev} aria-label="Anterior" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100">
+            ←
+          </button>
+          <button
+            onClick={goToday}
+            className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
+          >
+            Hoy
+          </button>
+          <button onClick={goNext} aria-label="Siguiente" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100">
+            →
+          </button>
+          <span className="ml-1 font-medium capitalize text-slate-700">{headerLabel}</span>
+        </div>
+
         <div className="flex rounded-lg border border-slate-300 p-0.5">
           {(Object.keys(VIEW_LABELS) as ViewMode[]).map((mode) => (
             <button
@@ -79,22 +87,6 @@ export function CalendarPage() {
             </button>
           ))}
         </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <button onClick={goPrev} aria-label="Anterior" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100">
-          ←
-        </button>
-        <button
-          onClick={goToday}
-          className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
-        >
-          Hoy
-        </button>
-        <button onClick={goNext} aria-label="Siguiente" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100">
-          →
-        </button>
-        <span className="ml-1 font-medium capitalize text-slate-700">{headerLabel}</span>
       </div>
 
       {viewMode === "month" && <MonthGrid currentDate={currentDate} tasksByDay={tasksByDay} />}
@@ -191,7 +183,11 @@ function DayList({ currentDate, tasksByDay }: { currentDate: Date; tasksByDay: T
   const tasks = tasksByDay.get(formatDateKey(currentDate)) ?? [];
 
   if (tasks.length === 0) {
-    return <p className="rounded-xl border border-slate-200 bg-white p-6 text-center text-slate-500">Sin tareas para este día.</p>;
+    return (
+      <p className="rounded-xl border border-slate-200 bg-white p-6 text-center text-slate-500">
+        Sin tareas para este día.
+      </p>
+    );
   }
 
   return (

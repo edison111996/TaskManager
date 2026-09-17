@@ -14,13 +14,14 @@ interface NavGroup {
   items: NavItem[];
 }
 
-const TOP_LEVEL_ITEMS: NavItem[] = [
-  { to: "/tasks", label: "Tareas", requiredPermission: "Tasks:Read" },
-  { to: "/calendar", label: "Calendario", requiredPermission: "Tasks:Read" },
-  { to: "/reports", label: "Informes", requiredPermission: "Reports:Read" },
-];
-
 const GROUPS: NavGroup[] = [
+  {
+    label: "Tareas",
+    items: [
+      { to: "/tasks", label: "Tareas", requiredPermission: "Tasks:Read" },
+      { to: "/reports", label: "Informes", requiredPermission: "Reports:Read" },
+    ],
+  },
   {
     label: "Configuración",
     items: [
@@ -87,7 +88,6 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { permissions } = useAuth();
-  const visibleTopLevel = TOP_LEVEL_ITEMS.filter((item) => permissions.includes(item.requiredPermission));
 
   return (
     <>
@@ -126,11 +126,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             <NavLink to="/" end className={linkClasses} onClick={onClose}>
               Inicio
             </NavLink>
-            {visibleTopLevel.map((item) => (
-              <NavLink key={item.to} to={item.to} className={linkClasses} onClick={onClose}>
-                {item.label}
-              </NavLink>
-            ))}
 
             {GROUPS.map((group) => (
               <SidebarGroup

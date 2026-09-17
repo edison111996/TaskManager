@@ -11,10 +11,17 @@ export interface UserTaskCountDto {
   count: number;
 }
 
+export interface TrendPointDto {
+  periodLabel: string;
+  created: number;
+  completed: number;
+}
+
 export interface TasksSummaryDto {
   total: number;
   byStatus: StatusCountDto[];
   byUser: UserTaskCountDto[];
+  trend: TrendPointDto[];
 }
 
 export function getTasksSummary() {
