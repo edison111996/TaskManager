@@ -1,0 +1,331 @@
+================================================================================
+ GUIA DE ESTUDIO - BACKEND (TaskManager.Api / Application / Domain / Infrastructure)
+================================================================================
+Este documento explica, con tus propias palabras posibles, TODO lo que se
+construyo en el backend: que es, por que se hizo asi, y como defenderlo en una
+entrevista. No memorices esto de memoria - léelo, pruébalo tú mismo en Postman
+o Scalar, y quédate con las IDEAS (el "por qué"), que es lo que en realidad te
+van a preguntar.
+
+--------------------------------------------------------------------------------
+1. QUE ES ESTE PROYECTO (elevator pitch)
+--------------------------------------------------------------------------------
+"Es una API REST en .NET 9 para un gestor de tareas con control de acceso
+basado en roles y permisos granulares por módulo. Usa arquitectura limpia
+(Clean Architecture) en 4 capas, autenticación con JWT + refresh token
+(guardado en cookie httpOnly para que JavaScript no pueda robarlo), y
+Entity Framework Core contra SQL Server."
+
+Si te preguntan "¿qué hace tu proyecto?" - responde eso, y si quieren más
+detalle, sigues bajando por este documento.
+
+--------------------------------------------------------------------------------
+2. ARQUITECTURA: LAS 4 CAPAS (Clean Architecture)
+--------------------------------------------------------------------------------
+El proyecto tiene 4 proyectos (.csproj) dentro de la carpeta src/:
+
+  TaskManager.Domain          <- el corazón, no depende de NADA más
+  TaskManager.Application     <- depende solo de Domain
+  TaskManager.Infrastructure  <- depende de Application y Domain
+  TaskManager.Api             <- depende de Application e Infrastructure
+
+REGLA DE ORO: las flechas de dependencia (referencias de proyecto) siempre
+apuntan HACIA ADENTRO (hacia Domain). Domain no sabe que existe una base de
+datos, ni un servidor web, ni una API REST. Esto se llama "Dependency
+Inversion" y es la idea central de Clean Architecture / Arquitectura
+Hexagonal.
+
+¿QUÉ HAY EN CADA CAPA?
+
+- Domain (src/TaskManager.Domain/):
+  Las "entidades" del negocio: User, Role, Module, Permission, TaskItem,
+  TaskComment, etc. Son clases C# planas (POCOs), sin ningún atributo de
+  Entity Framework ni de ASP.NET. Ejemplo: Entities/User.cs.
+
+- Application (src/TaskManager.Application/):
+  La LÓGICA del negocio: "¿cómo se crea un usuario? ¿qué reglas tiene?
+  ¿qué pasa si el correo ya existe?". Aquí viven los "servicios"
+  (UserService, TaskService, AuthService...) y las interfaces que ellos
+  necesitan (IApplicationDbContext, IPasswordHasher, IJwtTokenGenerator).
+  IMPORTANTE: Application NO sabe que la base de datos es SQL Server, ni
+  que el hash de contraseñas es BCrypt - solo conoce las interfaces.
+
+- Infrastructure (src/TaskManager.Infrastructure/):
+  Las implementaciones CONCRETAS de esas interfaces: TaskManagerDbContext
+  (Entity Framework + SQL Server), PasswordHasher (BCrypt),
+  JwtTokenGenerator. Si mañana cambias de SQL Server a PostgreSQL, o de
+  BCrypt a Argon2, solo tocas esta capa.
+
+- Api (src/TaskManager.Api/):
+  La puerta de entrada HTTP: los Controllers (AuthController,
+  UsersController, TasksController...), la configuración de JWT/CORS/
+  autenticación en Program.cs, y el middleware de errores.
+
+PREGUNTA TÍPICA DE ENTREVISTA: "¿Por qué separar en capas así?"
+RESPUESTA: "Para que la lógica de negocio no dependa de detalles técnicos
+como la base de datos o el framework web. Así puedo cambiar de SQL Server a
+otra base, o testear los servicios sin levantar una base de datos real,
+simplemente inyectando una implementación falsa (mock) de
+IApplicationDbContext."
+
+--------------------------------------------------------------------------------
+3. INYECCIÓN DE DEPENDENCIAS (Dependency Injection / DI)
+--------------------------------------------------------------------------------
+Cada capa tiene un archivo DependencyInjection.cs con un método de extensión
+(AddApplication(), AddInfrastructure()) que registra sus servicios en el
+contenedor de ASP.NET Core. Program.cs simplemente llama:
+
+    builder.Services.AddApplication();
+    builder.Services.AddInfrastructure(builder.Configuration);
+
+Esto es DI: en vez de que un servicio haga "new SqlConnection()" el mismo,
+el CONSTRUCTOR pide una interfaz (ej. IApplicationDbContext) y el framework
+le entrega automáticamente la implementación concreta ya configurada. Mira
+cualquier servicio, ej. TaskManager.Application/Users/UserService.cs -
+su constructor recibe IApplicationDbContext y IPasswordHasher, nunca crea
+esas cosas él mismo.
+
+PREGUNTA TÍPICA: "¿Qué es la inyección de dependencias y para qué sirve?"
+RESPUESTA: "Es un patrón donde las clases reciben sus dependencias desde
+afuera (por constructor) en vez de crearlas ellas mismas. Facilita testing
+(puedo inyectar un mock) y desacopla el código de implementaciones
+concretas."
+
+--------------------------------------------------------------------------------
+4. AUTENTICACIÓN: JWT + REFRESH TOKEN
+--------------------------------------------------------------------------------
+Archivos clave: Application/Auth/AuthService.cs, Api/Controllers/
+AuthController.cs, Infrastructure/Security/JwtTokenGenerator.cs.
+
+CONCEPTO: hay DOS "llaves" distintas:
+
+  ACCESS TOKEN (JWT, dura 15 minutos)
+  - Es un string largo (JSON codificado y FIRMADO digitalmente) que trae
+    adentro: quién sos (tu id, tu correo) y qué podés hacer (tus permisos,
+    ej. "Users:Read"). El servidor NO necesita consultar la base de datos
+    para saber tus permisos en cada request - los lee directo del token.
+    Eso lo hace rápido, pero por eso dura poco (si se filtra, expira
+    pronto).
+  - Va en el header HTTP: Authorization: Bearer <token>
+
+  REFRESH TOKEN (string random, dura 7 días)
+  - No sirve para acceder a ningún endpoint de negocio. Solo sirve para
+    pedir un access token nuevo cuando el viejo expiró.
+  - Se guarda como COOKIE HTTPONLY (ver punto 5) en vez de mandarse en el
+    JSON, para que JavaScript en el navegador NUNCA pueda leerlo (así, si
+    hay un ataque XSS, el atacante no puede robarlo).
+  - "Rota" en cada uso: cada vez que se usa para pedir un access token
+    nuevo, se genera un refresh token NUEVO y se invalida el viejo
+    (columna RevokedAt en la tabla RefreshTokens). Así, si alguien roba un
+    refresh token viejo y lo intenta reusar, ya no sirve.
+
+FLUJO COMPLETO:
+  1. POST /api/auth/login con correo+contraseña
+  2. AuthService valida la contraseña (BCrypt.Verify) contra el hash
+     guardado (NUNCA se guarda la contraseña en texto plano)
+  3. Si es válida, genera un JWT (JwtTokenGenerator.GenerateAccessToken)
+     y un refresh token random (GenerateRefreshToken - son 64 bytes
+     random en Base64, ver RandomNumberGenerator.GetBytes)
+  4. El controller pone el refresh token en una cookie httpOnly y
+     devuelve el access token en el JSON
+  5. El cliente manda el access token en cada request protegida
+  6. A los 15 minutos, el access token expira -> el cliente llama
+     POST /api/auth/refresh-token (la cookie viaja sola) -> recibe un
+     access token nuevo
+
+PREGUNTA TÍPICA: "¿Por qué dos tokens en vez de uno solo que dure más?"
+RESPUESTA: "Es un balance entre seguridad y experiencia de usuario. Un
+token de vida corta (access token) limita el daño si se filtra, pero no
+querés que el usuario haga login cada 15 minutos - por eso el refresh
+token, que vive más tiempo pero solo sirve para renovar, no para acceder
+a datos directamente, y además rota en cada uso para detectar robo."
+
+PREGUNTA TÍPICA: "¿Qué es JWT?"
+RESPUESTA: "JSON Web Token. Un estándar para tokens firmados digitalmente
+que contienen 'claims' (afirmaciones) sobre el usuario. Tiene 3 partes
+separadas por puntos: header.payload.signature. La firma (con una clave
+secreta, HMAC-SHA256 en este proyecto - ver appsettings ""Jwt:Key"")
+garantiza que nadie pueda modificar el contenido sin que el servidor lo
+detecte al validar."
+
+--------------------------------------------------------------------------------
+5. COOKIE HTTPONLY - POR QUÉ ES "EL PATRÓN SEGURO"
+--------------------------------------------------------------------------------
+Ver Api/Controllers/AuthController.cs, método SetRefreshTokenCookie.
+
+Una cookie httpOnly es una cookie que el navegador guarda pero que
+JavaScript NO PUEDE LEER (document.cookie no la muestra). Solo el
+navegador la manda automáticamente en cada request al mismo dominio/sitio
+(por eso el frontend usa fetch con credentials:'include').
+
+¿Por qué importa? Si un atacante lograra inyectar JavaScript malicioso en
+tu página (ataque XSS), con localStorage podría robar el token con solo
+"localStorage.getItem('refreshToken')". Con una cookie httpOnly, ese mismo
+script JAMÁS puede leer el valor - solo el navegador puede mandarlo, y
+solo al servidor correcto.
+
+También se configuró CORS en Program.cs con AllowCredentials() y un origen
+específico (http://localhost:5173) - esto es OBLIGATORIO para que las
+cookies viajen entre el frontend (puerto 5173) y el backend (puerto 5080),
+que técnicamente son "orígenes" distintos.
+
+PREGUNTA TÍPICA: "¿Qué es XSS y cómo lo mitigaste?"
+RESPUESTA: "Cross-Site Scripting: cuando un atacante logra ejecutar
+JavaScript no autorizado en tu página (por ejemplo, si no saneas un input
+de usuario que se muestra sin escapar). Mitigué el impacto sobre la
+autenticación guardando el refresh token en una cookie httpOnly, así ese
+JavaScript malicioso no puede leerlo aunque logre ejecutarse."
+
+--------------------------------------------------------------------------------
+6. ROLES Y PERMISOS (RBAC - Role-Based Access Control)
+--------------------------------------------------------------------------------
+Ver Domain/Entities/{Module,Permission,Role,User,UserRole,
+RolePermission}.cs.
+
+MODELO DE DATOS (relaciones muchos-a-muchos):
+
+  Module (ej. "Users", "Tasks")
+     |
+     +-- tiene 4 Permission (Read, Create, Edit, Delete) -- 1 a muchos
+                |
+  Role (ej. "Admin", "User")
+     |
+     +-- tiene muchos Permission (vía tabla intermedia RolePermission)
+     |
+  User (ej. "admin@taskmanager.local")
+     |
+     +-- tiene muchos Role (vía tabla intermedia UserRole)
+
+Un usuario puede tener VARIOS roles. Un rol agrupa VARIOS permisos. Así,
+"¿puede este usuario editar tareas?" se resuelve como: ¿alguno de sus
+roles tiene el permiso "Tasks:Edit"?
+
+CÓMO SE APLICA EN CADA REQUEST (sin ir a la base de datos cada vez):
+Al hacer login, AuthService.AuthService.BuildAuthResponseAsync calcula la
+UNIÓN de todos los permisos de todos los roles del usuario, y
+JwtTokenGenerator los mete como "claims" dentro del JWT (claim type
+"permission", uno por cada código tipo "Tasks:Edit"). Cuando llega un
+request, el atributo personalizado [HasPermission("Tasks","Edit")]
+(Api/Authorization/HasPermissionAttribute.cs) simplemente revisa si ese
+claim está en el token - no consulta la base de datos, por eso es rápido.
+
+TRADE-OFF (para si te preguntan "¿y si le cambio los permisos a alguien
+mientras tiene sesión activa?"): los permisos quedan "congelados" en el
+token hasta que expira (15 min) o hace refresh. Es una decisión consciente
+de rendimiento vs. actualización instantánea - normal en sistemas JWT.
+
+PREGUNTA TÍPICA: "¿Cómo diseñarías un sistema de permisos para una app con
+muchos módulos?"
+RESPUESTA: "Con el patrón Módulo x Acción = Permiso (ej. Users:Read,
+Tasks:Edit), agrupando permisos en Roles, y asignando uno o varios roles
+a cada usuario. Así, agregar un módulo nuevo es solo insertar filas
+(Module + sus 4 Permission), sin tocar código de autorización."
+
+--------------------------------------------------------------------------------
+7. EL SEEDER IDEMPOTENTE (Infrastructure/Persistence/Seed/DbSeeder.cs)
+--------------------------------------------------------------------------------
+"Idempotente" significa que podés correrlo mil veces y el resultado es el
+mismo (no duplica datos). En vez de "si la tabla Modules está vacía,
+siembra todo" (como era al principio), ahora por CADA módulo definido en
+el arreglo ModuleSeeds: busca si ya existe (por Code), lo crea si falta,
+crea los permisos que falten, y le da esos permisos al rol Admin si no
+los tenía. Esto permitió agregar los módulos "Tasks" y "Reports" DESPUÉS,
+sin borrar la base de datos existente - el admin ganó los permisos nuevos
+automáticamente al reiniciar la app.
+
+PREGUNTA TÍPICA: "¿Qué es idempotencia y por qué importa aquí?"
+RESPUESTA: "Que ejecutar una operación varias veces produce el mismo
+resultado que ejecutarla una vez. Importa en un seeder porque corre cada
+vez que arranca la app en Development (ver Program.cs) - si no fuera
+idempotente, duplicaría datos en cada reinicio."
+
+--------------------------------------------------------------------------------
+8. ENTITY FRAMEWORK CORE - LO QUE HAY QUE SABER DEFENDER
+--------------------------------------------------------------------------------
+- ES UN ORM (Object-Relational Mapper): traduce clases C# a tablas SQL y
+  viceversa, sin que escribas SQL a mano (aunque podrías si quisieras,
+  con FromSql).
+- TaskManagerDbContext (Infrastructure/Persistence/TaskManagerDbContext.cs)
+  es la clase central: expone un DbSet<T> por cada tabla.
+- Las Configurations (Infrastructure/Persistence/Configurations/*.cs)
+  usan Fluent API en vez de Data Annotations para definir claves, índices,
+  relaciones y comportamiento de borrado (OnDelete). Ejemplo real: en
+  TaskItemConfiguration se usa DeleteBehavior.Restrict en las FK hacia
+  User porque TaskItem tiene DOS relaciones con User (AssignedToUser y
+  CreatedByUser) y SQL Server RECHAZA migraciones con cascada cuando hay
+  "multiple cascade paths" ambiguos.
+- Migrations (carpeta Persistence/Migrations/): cada cambio al modelo de
+  datos genera una migración versionada (dotnet ef migrations add) que
+  se puede aplicar (dotnet ef database update, o automático al arrancar
+  con dbContext.Database.MigrateAsync() en Program.cs).
+- Include/ThenInclude: para traer relaciones (ej. traer un User con sus
+  Roles y los Permission de esos Roles) hay que pedirlo explícitamente,
+  EF Core NO carga relaciones automáticamente (evita el problema N+1 por
+  accidente, pero hay que acordarse de pedirlas).
+
+BUG REAL QUE ENCONTRAMOS Y ARREGLAMOS (excelente para contar en una
+entrevista - demuestra que entendés lo que pasa "bajo el capó"):
+Al agregar un comentario a una tarea, se hacía `task.Comments.Add(comment)`
+(agregarlo solo a la colección de navegación) en vez de
+`_db.TaskComments.Add(comment)` (agregarlo al DbSet directamente). Esto
+hizo que Entity Framework, en vez de generar un INSERT, generara un UPDATE
+(porque en ciertas condiciones el change tracker no lo reconoció
+inequívocamente como una entidad nueva) - y como no había ninguna fila con
+ese Id todavía, el UPDATE afectó 0 filas, lanzando
+DbUpdateConcurrencyException. La solución fue agregar la entidad al DbSet
+explícitamente (el patrón que se usa en TODOS los demás Create de este
+proyecto), y dejar que EF Core sincronice solo la colección de navegación
+por "relationship fixup".
+RESPUESTA CORTA SI TE PREGUNTAN "contame un bug que hayas resuelto":
+"Un INSERT que EF Core estaba generando como UPDATE por cómo agregué la
+entidad al change tracker - lo resolví usando el DbSet directamente en vez
+de solo la colección de navegación del padre."
+
+--------------------------------------------------------------------------------
+9. MANEJO DE ERRORES (Api/Middleware/ExceptionHandlingMiddleware.cs)
+--------------------------------------------------------------------------------
+En vez de que cada controller tenga try/catch, hay UN middleware global que
+envuelve TODA la aplicación. Los servicios lanzan excepciones específicas
+del dominio (NotFoundException, ConflictException, ValidationAppException,
+UnauthorizedAppException - ver Application/Common/Exceptions/) y el
+middleware las traduce a códigos HTTP (404, 409, 400, 401) con un JSON
+uniforme. Esto es el patrón "Middleware" de ASP.NET Core: cada request pasa
+por una cadena de componentes (app.Use...) antes de llegar al controller.
+
+PREGUNTA TÍPICA: "¿Cómo manejás errores de forma centralizada?"
+RESPUESTA: "Con un middleware que envuelve el pipeline HTTP y captura
+excepciones custom, mapeándolas a códigos de estado HTTP apropiados. Evita
+repetir try/catch en cada controller."
+
+--------------------------------------------------------------------------------
+10. GLOSARIO RÁPIDO
+--------------------------------------------------------------------------------
+- DTO (Data Transfer Object): clase simple para mover datos entre capas
+  sin exponer las entidades de dominio directamente (ej. UserDto no tiene
+  PasswordHash, aunque la entidad User sí).
+- Repositorio implícito: este proyecto NO usa el patrón Repository
+  clásico; usa IApplicationDbContext directamente desde Application (un
+  enfoque válido y más simple, popularizado por plantillas como Clean
+  Architecture de Jason Taylor).
+- Migration: script versionado que lleva el esquema de la base de datos
+  de un estado al siguiente.
+- Middleware: componente que procesa cada request HTTP en una cadena
+  (pipeline).
+- Claim: un dato dentro de un JWT (ej. "email", "permission").
+- BCrypt: algoritmo de hash de contraseñas diseñado para ser LENTO a
+  propósito (dificulta ataques de fuerza bruta), con "salt" incluido
+  automáticamente.
+- CORS (Cross-Origin Resource Sharing): mecanismo del navegador que
+  bloquea por defecto que un sitio (localhost:5173) llame a una API en
+  otro origen (localhost:5080), salvo que el servidor lo autorice
+  explícitamente.
+
+--------------------------------------------------------------------------------
+11. RUTA RÁPIDA POR EL CÓDIGO (para repasar antes de la entrevista)
+--------------------------------------------------------------------------------
+1. src/TaskManager.Domain/Entities/User.cs           - una entidad simple
+2. src/TaskManager.Application/Auth/AuthService.cs    - login/refresh/etc
+3. src/TaskManager.Api/Controllers/AuthController.cs  - la cookie httpOnly
+4. src/TaskManager.Api/Authorization/HasPermissionAttribute.cs
+5. src/TaskManager.Infrastructure/Persistence/Seed/DbSeeder.cs
+6. src/TaskManager.Api/Program.cs                     - donde todo se conecta

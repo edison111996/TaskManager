@@ -1,0 +1,21 @@
+# .NET
+bin/
+obj/
+*.user
+.vs/
+
+# Node / frontend
+node_modules/
+client/dist/
+client/dist-ssr/
+*.local
+
+# Secretos locales — connection string real y clave de firma JWT, nunca al repo.
+# Ver appsettings.Development.json.example para la plantilla sin datos sensibles.
+src/TaskManager.Api/appsettings.Development.json
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store

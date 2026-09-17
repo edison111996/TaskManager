@@ -1,0 +1,219 @@
+================================================================================
+ GUIA DE ESTUDIO - FRONTEND (client/ - React + TypeScript + Vite + Tailwind)
+================================================================================
+Igual que la guía del backend: leé esto, abrí el código al lado, y quedate
+con el "por qué" de cada cosa. Eso es lo que te van a preguntar.
+
+--------------------------------------------------------------------------------
+1. QUE ES ESTO (elevator pitch)
+--------------------------------------------------------------------------------
+"Es una SPA (Single Page Application) en React 19 + TypeScript, armada con
+Vite, que consume la API REST del backend. Maneja autenticación con JWT en
+memoria + refresh automático vía cookie httpOnly, tiene rutas protegidas
+por permiso, y un pequeño kit de componentes reutilizables con Tailwind
+CSS."
+
+--------------------------------------------------------------------------------
+2. POR QUÉ VITE (y no Create React App)
+--------------------------------------------------------------------------------
+Vite es la herramienta que arranca el servidor de desarrollo (npm run dev,
+puerto 5173) y empaqueta el proyecto para producción (npm run build). Es
+mucho más rápido que las alternativas viejas porque usa ES Modules nativos
+del navegador en desarrollo (no re-empaqueta todo tu proyecto en cada
+cambio, solo el archivo que tocaste).
+
+--------------------------------------------------------------------------------
+3. ESTRUCTURA DE CARPETAS - QUÉ VA DÓNDE Y POR QUÉ
+--------------------------------------------------------------------------------
+  src/
+    api/         -> funciones que llaman al backend (fetch). Una por
+                     "recurso": auth.ts, users.ts, roles.ts, tasks.ts...
+                     No tienen JSX, son solo funciones + tipos TypeScript.
+    auth/        -> AuthContext (el "estado global" de sesión) y
+                     ProtectedRoute (el guard de rutas).
+    layout/      -> AppLayout (header + sidebar + contenido) y Sidebar.
+    components/  -> piezas de UI genéricas y SIN LÓGICA DE NEGOCIO:
+                     Button, Input, Card, Badge, Table, Modal, Spinner,
+                     ToastProvider. Se usan en cualquier página.
+    pages/       -> una carpeta "por pantalla": LoginPage, UsersPage,
+                     TasksPage... Estas SÍ tienen lógica de negocio (piden
+                     datos a /api, arman formularios).
+    utils/       -> helpers chicos sin estado (ej. taskStatus.ts, los
+                     mapas de traducción de estados).
+
+ESTE ES UN PATRÓN COMÚN: organizar "por tipo" (todos los componentes UI
+juntos, todas las páginas juntas). Cuando un proyecto crece mucho, se
+suele migrar a organizar "por feature" (una carpeta users/ con su propio
+api+componentes+página adentro) - no hacía falta ese salto para este
+tamaño de proyecto.
+
+--------------------------------------------------------------------------------
+4. REACT: LOS CONCEPTOS QUE USA ESTE PROYECTO
+--------------------------------------------------------------------------------
+
+a) COMPONENTES Y PROPS
+   Un componente es una función que devuelve JSX (HTML "falso" que en
+   realidad es JavaScript). Las "props" son los argumentos que le pasás:
+     <Button variant="danger" onClick={...}>Eliminar</Button>
+   Mirá components/Button.tsx: recibe `variant`, `isLoading`, y el resto
+   de props normales de un <button> HTML (gracias a extender
+   ButtonHTMLAttributes<HTMLButtonElement>).
+
+b) useState
+   El "estado" de un componente: un valor que, cuando cambia, hace que
+   React vuelva a dibujar (re-render) ese componente. Ejemplo en
+   LoginPage.tsx: const [email, setEmail] = useState("..."). Cada
+   `setEmail(...)` dispara un nuevo render con el valor actualizado.
+
+c) useEffect
+   Código que corre DESPUÉS de que el componente se dibuja (o cuando
+   cambian ciertas variables). Se usa para "efectos secundarios": pedir
+   datos a una API, suscribirse a algo, etc. Ejemplo en UsersPage.tsx:
+   `useEffect(() => { loadUsers(); }, [])` - el array vacío [] significa
+   "correr esto solo una vez, cuando el componente aparece por primera
+   vez".
+
+d) CONTEXT (Context API) - "estado global sin pasar props a mano"
+   Dos ejemplos reales: AuthContext.tsx y ToastProvider.tsx.
+   Sin Context, para que un botón en TaskDetailPage sepa quién es el
+   usuario logueado, tendrías que pasar esa información como prop desde
+   App.tsx bajando por cada componente intermedio ("prop drilling").
+   Con Context: `createContext()` crea un "canal", un <AuthProvider>
+   arriba de todo lo "llena" con el valor, y cualquier componente hijo,
+   sin importar cuán profundo esté, lo lee con `useAuth()` (un hook
+   personalizado que internamente hace `useContext(AuthContext)`).
+
+e) HOOKS PERSONALIZADOS (custom hooks)
+   Una función que empieza con "use" y usa otros hooks adentro.
+   useAuth() y useToast() son ejemplos: encapsulan "cómo se lee el
+   Context" para que las páginas no tengan que importar useContext +
+   AuthContext cada vez, solo `useAuth()`.
+
+f) GENERICS (TypeScript) - components/Table.tsx
+   `Table<T>` es un componente que sirve para CUALQUIER tipo de dato: se
+   usa como `<Table<UserDto> rows={...} columns={...} />` (TypeScript
+   infiere el tipo T automáticamente desde `rows`). Así el mismo
+   componente sirve para usuarios, tareas, roles, sin duplicar código,
+   y con autocompletado/chequeo de tipos correcto en cada uso.
+
+g) REACT ROUTER: rutas, rutas anidadas, rutas protegidas, useParams
+   - App.tsx define las rutas con <Routes>/<Route>.
+   - Rutas ANIDADAS: <Route path="/" element={<AppLayout/>}> con hijos
+     adentro (<Route path="users" .../>). AppLayout tiene un <Outlet/>
+     donde React Router "inserta" la ruta hija activa - así el sidebar y
+     el header no se vuelven a dibujar al navegar entre páginas.
+   - Ruta PROTEGIDA: ProtectedRoute.tsx es un componente que envuelve a
+     otro (`children`) y decide si lo muestra o redirige a /login según
+     si hay sesión.
+   - PARÁMETROS DE RUTA: "/tasks/:id" + `useParams<{id:string}>()` en
+     TaskDetailPage.tsx - así una sola página sirve para ver cualquier
+     tarea, leyendo el id de la URL.
+
+--------------------------------------------------------------------------------
+5. EL FLUJO DE AUTENTICACIÓN EN EL FRONTEND (lo más importante)
+--------------------------------------------------------------------------------
+Archivos: api/httpClient.ts, api/auth.ts, auth/AuthContext.tsx.
+
+- El ACCESS TOKEN se guarda en una variable de módulo simple (no en
+  useState, no en localStorage) dentro de httpClient.ts. Vive solo en
+  memoria RAM del navegador: si recargás la página (F5), se pierde a
+  propósito.
+- El REFRESH TOKEN el frontend NUNCA lo toca - vive en la cookie httpOnly
+  que puso el backend. Por eso TODOS los fetch llevan
+  `credentials: 'include'` (si no, el navegador no manda la cookie).
+- Al ARRANCAR LA APP (AuthContext, dentro de useEffect con []): se llama
+  a /api/auth/refresh-token de una - si la cookie todavía es válida,
+  recuperás la sesión sin pedir login de nuevo (así sobrevive a un F5).
+- CADA REQUEST protegido (apiFetch en httpClient.ts): si el backend
+  responde 401 (access token vencido), automáticamente:
+    1. Llama a refresh-token UNA vez
+    2. Si sale bien, reintenta la request original con el token nuevo
+    3. Si también falla, limpia la sesión (setUnauthorizedHandler) y el
+       usuario termina viendo la pantalla de login
+  Todo esto pasa SIN que el usuario note nada - por eso decíamos que "el
+  usuario solo ve login una vez cada 7 días".
+
+PREGUNTA TÍPICA: "¿Dónde guardás el token y por qué ahí?"
+RESPUESTA: "El access token en memoria (una variable JS), nunca en
+localStorage, porque localStorage es legible por cualquier script en la
+página - un ataque XSS podría robarlo. El refresh token va en una cookie
+httpOnly que ni siquiera mi propio código JavaScript puede leer, así que
+un XSS tampoco puede robar ESE."
+
+--------------------------------------------------------------------------------
+6. TAILWIND CSS
+--------------------------------------------------------------------------------
+En vez de escribir archivos .css con clases como ".btn-primary { ... }",
+Tailwind da clases utilitarias chiquitas que se combinan directo en el
+JSX: `className="rounded-lg bg-blue-600 px-3 py-2 text-white"`. Cada
+clase hace UNA sola cosa (rounded-lg = border-radius, bg-blue-600 = un
+color de fondo específico, etc). Ventaja: no hay que inventar nombres de
+clases ni saltar entre archivos CSS y componentes; la config vive en
+vite.config.ts (plugin @tailwindcss/vite) + `@import "tailwindcss";` en
+index.css.
+
+OJO - UNA TRAMPA REAL QUE NOS PASÓ: Tailwind escanea tu código buscando
+nombres de clases COMPLETOS como texto literal para saber cuáles generar.
+Si armás una clase dinámicamente con un template string, ej.
+`text-${color}-600`, Tailwind NUNCA ve el string final ("text-blue-600")
+en el código fuente, así que NO genera esa clase y no se aplica ningún
+color. La solución (ver utils/taskStatus.ts y ReportsPage.tsx) es tener
+un objeto/mapa con las clases completas escritas literalmente para cada
+caso posible.
+
+--------------------------------------------------------------------------------
+7. COMPONENTES REUTILIZABLES - EL KIT QUE ARMAMOS
+--------------------------------------------------------------------------------
+  Button   - variantes (primary/secondary/danger) + estado isLoading
+             (muestra un Spinner y se autodeshabilita)
+  Input    - un <input> con label y mensaje de error integrados
+  Card     - una caja blanca con sombra, reutilizada en Dashboard/Roles/
+             Módulos/detalle de tarea
+  Badge    - una "píldora" de color (para roles, permisos, estados)
+  Table<T> - tabla genérica (ver punto 4.f)
+  Modal    - ventana emergente reutilizada por los formularios de
+             crear/editar Usuario y Tarea
+  Spinner  - el círculo girando (Tailwind: animate-spin)
+  ToastProvider/useToast - notificaciones flotantes de éxito/error
+
+PREGUNTA TÍPICA: "¿Cómo decidís qué convertir en componente reutilizable?"
+RESPUESTA: "Cuando veo el mismo patrón visual repetido en 2+ pantallas sin
+lógica de negocio propia (un botón, una tarjeta, una tabla), lo extraigo a
+components/ con props para las partes que varían. Si tiene lógica de
+negocio específica de una pantalla (como el formulario de usuario), se
+queda en pages/, no se sobre-abstrae."
+
+--------------------------------------------------------------------------------
+8. PREGUNTAS FRECUENTES DE ENTREVISTA (frontend)
+--------------------------------------------------------------------------------
+P: "¿Qué es el Virtual DOM?"
+R: "Una representación en memoria del DOM real que React usa para calcular
+el mínimo de cambios necesarios antes de tocar el DOM de verdad, que es
+lento de actualizar."
+
+P: "¿Diferencia entre estado (state) y props?"
+R: "Las props las recibe un componente desde su padre y no las puede
+modificar. El estado (useState) es propio del componente y sí lo puede
+cambiar, disparando un re-render."
+
+P: "¿Por qué TypeScript y no JavaScript plano?"
+R: "Detecta errores de tipos en tiempo de compilación (ej. mandar un
+string donde se espera un número) antes de que lleguen a producción, y da
+autocompletado real en el editor sabiendo la forma exacta de cada dato
+(interfaces como UserDto)."
+
+P: "¿Cómo evitás pedir datos de más (over-fetching) o hacer requests de
+más?"
+R: "Cada página pide solo lo que necesita en su propio useEffect; el
+refresh de token se comparte con una sola promesa en curso (ver
+refreshPromise en httpClient.ts) para que varias requests que fallan al
+mismo tiempo no disparen múltiples refresh en paralelo."
+
+--------------------------------------------------------------------------------
+9. RUTA RÁPIDA POR EL CÓDIGO (para repasar antes de la entrevista)
+--------------------------------------------------------------------------------
+1. src/api/httpClient.ts        - el corazón del manejo de tokens
+2. src/auth/AuthContext.tsx     - el estado global de sesión
+3. src/components/Table.tsx     - el componente genérico
+4. src/pages/TaskFormModal.tsx  - un formulario real completo
+5. src/App.tsx                  - todas las rutas del sistema

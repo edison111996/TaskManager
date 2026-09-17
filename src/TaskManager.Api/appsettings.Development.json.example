@@ -1,0 +1,14 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "ConnectionStrings": {
+    "Default": "Server=localhost;Database=TaskManager;User Id=sa;Password=CAMBIAR_ESTO;TrustServerCertificate=True;MultipleActiveResultSets=true"
+  },
+  "Jwt": {
+    "Key": "GENERAR_UNA_CLAVE_ALEATORIA_LARGA_PROPIA"
+  }
+}
