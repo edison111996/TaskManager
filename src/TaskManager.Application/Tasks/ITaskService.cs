@@ -10,4 +10,5 @@ public interface ITaskService
     Task<TaskItemDto> UpdateAsync(Guid id, Guid changedByUserId, UpdateTaskRequest request, CancellationToken cancellationToken = default);
     Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
     Task<TaskItemDetailDto> AddCommentAsync(Guid taskId, Guid authorUserId, AddCommentRequest request, CancellationToken cancellationToken = default);
+    Task<byte[]> ExportPdfAsync(CancellationToken cancellationToken = default);
 }

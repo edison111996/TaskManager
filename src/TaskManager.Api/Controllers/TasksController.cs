@@ -36,6 +36,14 @@ public class TasksController : ControllerBase
         return Ok(await _taskService.GetByIdAsync(id, cancellationToken));
     }
 
+    [HttpGet("export/pdf")]
+    [HasPermission("Tasks", "Read")]
+    public async Task<IActionResult> ExportPdf(CancellationToken cancellationToken)
+    {
+        var pdfBytes = await _taskService.ExportPdfAsync(cancellationToken);
+        return File(pdfBytes, "application/pdf", "tareas.pdf");
+    }
+
     [HttpPost]
     [HasPermission("Tasks", "Create")]
     public async Task<ActionResult<TaskItemDto>> Create(CreateTaskRequest request, CancellationToken cancellationToken)

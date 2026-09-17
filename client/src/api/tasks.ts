@@ -1,4 +1,4 @@
-import { apiFetch } from "./httpClient";
+import { apiFetch, apiFetchBlob } from "./httpClient";
 
 export interface TaskUserDto {
   id: string;
@@ -90,4 +90,8 @@ export function addComment(taskId: string, text: string) {
     method: "POST",
     body: JSON.stringify({ text }),
   });
+}
+
+export function exportTasksPdf() {
+  return apiFetchBlob("/api/tasks/export/pdf");
 }

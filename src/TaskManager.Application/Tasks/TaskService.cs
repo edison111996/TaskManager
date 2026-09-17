@@ -1,4 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 using TaskManager.Application.Common.Exceptions;
 using TaskManager.Application.Common.Interfaces;
 using TaskManager.Application.Tasks.Dtos;
@@ -138,6 +141,78 @@ public class TaskService : ITaskService
 
         return ToDetailDto(task);
     }
+
+    public async Task<byte[]> ExportPdfAsync(CancellationToken cancellationToken = default)
+    {
+        var tasks = await _db.Tasks
+            .Include(t => t.AssignedToUser)
+            .Include(t => t.Comments)
+            .OrderBy(t => t.DueDate ?? DateTime.MaxValue)
+            .ThenByDescending(t => t.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        var document = Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                page.Size(PageSizes.A4);
+                page.Margin(30);
+                page.DefaultTextStyle(x => x.FontSize(10));
+
+                page.Header()
+                    .Text($"Listado de tareas — {DateTime.Now:dd/MM/yyyy HH:mm}")
+                    .FontSize(16).Bold();
+
+                page.Content().PaddingTop(15).Table(table =>
+                {
+                    table.ColumnsDefinition(columns =>
+                    {
+                        columns.RelativeColumn(3);
+                        columns.RelativeColumn(2);
+                        columns.RelativeColumn(2);
+                        columns.RelativeColumn(2);
+                        columns.RelativeColumn(1);
+                    });
+
+                    table.Header(header =>
+                    {
+                        header.Cell().Text("Título").Bold();
+                        header.Cell().Text("Estado").Bold();
+                        header.Cell().Text("Asignado a").Bold();
+                        header.Cell().Text("Fecha límite").Bold();
+                        header.Cell().Text("Comentarios").Bold();
+                        header.Cell().ColumnSpan(5).PaddingTop(4).BorderBottom(1).BorderColor(Colors.Grey.Lighten1);
+                    });
+
+                    foreach (var task in tasks)
+                    {
+                        table.Cell().Text(task.Title);
+                        table.Cell().Text(StatusLabel(task.Status));
+                        table.Cell().Text($"{task.AssignedToUser.FirstName} {task.AssignedToUser.LastName}");
+                        table.Cell().Text(task.DueDate?.ToString("dd/MM/yyyy") ?? "—");
+                        table.Cell().Text(task.Comments.Count.ToString());
+                    }
+                });
+
+                page.Footer().AlignCenter().Text(x =>
+                {
+                    x.CurrentPageNumber();
+                    x.Span(" / ");
+                    x.TotalPages();
+                });
+            });
+        });
+
+        return document.GeneratePdf();
+    }
+
+    private static string StatusLabel(TaskItemStatus status) => status switch
+    {
+        TaskItemStatus.Pending => "Pendiente",
+        TaskItemStatus.InProgress => "En progreso",
+        TaskItemStatus.Done => "Completada",
+        _ => status.ToString()
+    };
 
     private async Task<TaskItem> FindTaskAsync(Guid id, CancellationToken cancellationToken)
     {

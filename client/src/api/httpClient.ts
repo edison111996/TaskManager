@@ -62,7 +62,10 @@ async function refreshAccessToken(): Promise<string | null> {
   return refreshPromise;
 }
 
-export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
+// Comparte la mecánica de auth/retry entre apiFetch (JSON) y apiFetchBlob (binario,
+// para descargar archivos como el PDF de exportación) — ambos necesitan exactamente
+// el mismo manejo de token/401/errores, solo cambia cómo se lee el body al final.
+async function authorizedFetch(path: string, options: ApiFetchOptions = {}): Promise<Response> {
   const { skipAuth, headers, ...rest } = options;
 
   const doFetch = (token: string | null) =>
@@ -93,9 +96,21 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
     throw new Error(errorBody?.message ?? `Error ${response.status}`);
   }
 
+  return response;
+}
+
+export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
+  const response = await authorizedFetch(path, options);
+
   if (response.status === 204) {
     return undefined as T;
   }
 
   return (await response.json()) as T;
+}
+
+/** Para endpoints que devuelven un archivo (PDF, Excel) en vez de JSON. */
+export async function apiFetchBlob(path: string, options: ApiFetchOptions = {}): Promise<Blob> {
+  const response = await authorizedFetch(path, options);
+  return response.blob();
 }

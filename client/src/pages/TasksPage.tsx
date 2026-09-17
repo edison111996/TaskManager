@@ -6,7 +6,7 @@ import { Button } from "../components/Button";
 import { LoadingState } from "../components/LoadingState";
 import { useToast } from "../components/ToastProvider";
 import { useAuth } from "../auth/AuthContext";
-import { listTasks, deleteTask, type TaskItemDto } from "../api/tasks";
+import { listTasks, deleteTask, exportTasksPdf, type TaskItemDto } from "../api/tasks";
 import { listAssignableUsers, type UserLookupDto } from "../api/users";
 import { STATUS_LABELS, STATUS_TONES } from "../utils/taskStatus";
 import { TaskFormModal } from "./TaskFormModal";
@@ -25,6 +25,7 @@ export function TasksPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [isExporting, setIsExporting] = useState(false);
 
   const canCreate = hasPermission("Tasks:Create");
   const canEdit = hasPermission("Tasks:Edit");
@@ -56,6 +57,25 @@ export function TasksPage() {
     }
   }
 
+  async function handleExportPdf() {
+    setIsExporting(true);
+    try {
+      const blob = await exportTasksPdf();
+      // El navegador no deja "descargar" un blob directo: hay que armar una URL
+      // temporal, disparar el click de un <a> invisible, y liberar la URL después.
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "tareas.pdf";
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "No se pudo exportar el PDF.", "error");
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
   if (isLoading) return <LoadingState />;
 
   return (
@@ -76,6 +96,11 @@ export function TasksPage() {
               </button>
             ))}
           </div>
+          {viewMode === "list" && (
+            <Button variant="secondary" isLoading={isExporting} onClick={handleExportPdf}>
+              Exportar PDF
+            </Button>
+          )}
           {canCreate && <Button onClick={() => setIsCreating(true)}>+ Nueva tarea</Button>}
         </div>
       </div>

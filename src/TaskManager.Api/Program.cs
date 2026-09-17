@@ -12,6 +12,10 @@ using TaskManager.Infrastructure;
 using TaskManager.Infrastructure.Persistence;
 using TaskManager.Infrastructure.Persistence.Seed;
 
+// Community: gratis para individuos/empresas con facturación anual menor a ~1M USD
+// (más que de sobra para este proyecto). Sin esto, QuestPDF tira excepción al generar.
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi(options =>
