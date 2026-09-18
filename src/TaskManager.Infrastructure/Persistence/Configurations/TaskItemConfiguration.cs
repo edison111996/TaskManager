@@ -30,5 +30,12 @@ public class TaskItemConfiguration : IEntityTypeConfiguration<TaskItem>
             .WithOne(c => c.TaskItem)
             .HasForeignKey(c => c.TaskItemId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // SetNull en vez de Cascade/Restrict: borrar un proyecto no debería borrar (ni
+        // bloquear el borrado de) las tareas que tenía — simplemente quedan sin proyecto.
+        builder.HasOne(t => t.Project)
+            .WithMany(p => p.Tasks)
+            .HasForeignKey(t => t.ProjectId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

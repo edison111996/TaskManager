@@ -17,6 +17,10 @@ public class TaskItem : BaseEntity
     public Guid CreatedByUserId { get; set; }
     public User CreatedByUser { get; set; } = null!;
 
+    /// <summary>Opcional: una tarea puede no pertenecer a ningún proyecto.</summary>
+    public Guid? ProjectId { get; set; }
+    public Project? Project { get; set; }
+
     public ICollection<TaskComment> Comments { get; set; } = new List<TaskComment>();
     public ICollection<TaskStatusHistory> StatusHistory { get; set; } = new List<TaskStatusHistory>();
 }

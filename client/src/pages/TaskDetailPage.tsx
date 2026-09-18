@@ -61,6 +61,10 @@ export function TaskDetailPage() {
         {task.description && <p className="mb-3 text-slate-600">{task.description}</p>}
         <dl className="grid grid-cols-2 gap-2 text-sm text-slate-500">
           <div>
+            <dt className="font-medium text-slate-600">Proyecto</dt>
+            <dd>{task.project?.name ?? "—"}</dd>
+          </div>
+          <div>
             <dt className="font-medium text-slate-600">Asignado a</dt>
             <dd>
               {task.assignedTo.firstName} {task.assignedTo.lastName}

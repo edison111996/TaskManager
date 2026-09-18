@@ -25,6 +25,7 @@ public class TaskService : ITaskService
             .Include(t => t.AssignedToUser)
             .Include(t => t.CreatedByUser)
             .Include(t => t.Comments)
+            .Include(t => t.Project)
             .OrderBy(t => t.DueDate ?? DateTime.MaxValue)
             .ThenByDescending(t => t.CreatedAt)
             .ToListAsync(cancellationToken);
@@ -44,6 +45,10 @@ public class TaskService : ITaskService
             ?? throw new NotFoundException(nameof(Domain.Entities.User), request.AssignedToUserId);
         var creator = await _db.Users.FindAsync([createdByUserId], cancellationToken)
             ?? throw new NotFoundException(nameof(Domain.Entities.User), createdByUserId);
+        var project = request.ProjectId is { } projectId
+            ? await _db.Projects.FindAsync([projectId], cancellationToken)
+                ?? throw new NotFoundException(nameof(Domain.Entities.Project), projectId)
+            : null;
 
         var task = new TaskItem
         {
@@ -53,7 +58,8 @@ public class TaskService : ITaskService
             DueDate = request.DueDate,
             Status = TaskItemStatus.Pending,
             AssignedToUserId = assignee.Id,
-            CreatedByUserId = creator.Id
+            CreatedByUserId = creator.Id,
+            ProjectId = project?.Id
         };
 
         _db.Tasks.Add(task);
@@ -69,6 +75,7 @@ public class TaskService : ITaskService
 
         task.AssignedToUser = assignee;
         task.CreatedByUser = creator;
+        task.Project = project;
         return ToDto(task);
     }
 
@@ -85,6 +92,13 @@ public class TaskService : ITaskService
             ? task.AssignedToUser
             : await _db.Users.FindAsync([request.AssignedToUserId], cancellationToken)
                 ?? throw new NotFoundException(nameof(Domain.Entities.User), request.AssignedToUserId);
+
+        var project = request.ProjectId is { } projectId
+            ? task.ProjectId == projectId
+                ? task.Project
+                : await _db.Projects.FindAsync([projectId], cancellationToken)
+                    ?? throw new NotFoundException(nameof(Domain.Entities.Project), projectId)
+            : null;
 
         if (status != task.Status)
         {
@@ -104,6 +118,8 @@ public class TaskService : ITaskService
         task.Status = status;
         task.AssignedToUserId = assignee.Id;
         task.AssignedToUser = assignee;
+        task.ProjectId = project?.Id;
+        task.Project = project;
         task.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync(cancellationToken);
@@ -221,12 +237,16 @@ public class TaskService : ITaskService
             .Include(t => t.CreatedByUser)
             .Include(t => t.Comments).ThenInclude(c => c.Author)
             .Include(t => t.StatusHistory).ThenInclude(h => h.ChangedByUser)
+            .Include(t => t.Project)
             .FirstOrDefaultAsync(t => t.Id == id, cancellationToken)
             ?? throw new NotFoundException(nameof(TaskItem), id);
     }
 
     private static TaskUserDto ToUserDto(Domain.Entities.User user) =>
         new(user.Id, user.FirstName, user.LastName, user.Email);
+
+    private static TaskProjectDto? ToProjectDto(Domain.Entities.Project? project) =>
+        project is null ? null : new TaskProjectDto(project.Id, project.Name);
 
     private static TaskItemDto ToDto(TaskItem task) => new(
         task.Id,
@@ -235,6 +255,7 @@ public class TaskService : ITaskService
         task.Status.ToString(),
         task.StartDate,
         task.DueDate,
+        ToProjectDto(task.Project),
         ToUserDto(task.AssignedToUser),
         ToUserDto(task.CreatedByUser),
         task.Comments.Count,
@@ -247,6 +268,7 @@ public class TaskService : ITaskService
         task.Status.ToString(),
         task.StartDate,
         task.DueDate,
+        ToProjectDto(task.Project),
         ToUserDto(task.AssignedToUser),
         ToUserDto(task.CreatedByUser),
         task.Comments

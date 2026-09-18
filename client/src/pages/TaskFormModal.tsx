@@ -4,11 +4,13 @@ import { Input } from "../components/Input";
 import { Button } from "../components/Button";
 import { createTask, updateTask, type TaskItemDto, type TaskStatus } from "../api/tasks";
 import type { UserLookupDto } from "../api/users";
+import type { ProjectLookupDto } from "../api/projects";
 import { STATUS_LABELS } from "../utils/taskStatus";
 import { useToast } from "../components/ToastProvider";
 
 interface TaskFormModalProps {
   users: UserLookupDto[];
+  projects: ProjectLookupDto[];
   editingTask?: TaskItemDto;
   onClose: () => void;
   onSaved: () => void;
@@ -26,7 +28,7 @@ function validateDates(startDate: string, dueDate: string): string | undefined {
   return undefined;
 }
 
-export function TaskFormModal({ users, editingTask, onClose, onSaved }: TaskFormModalProps) {
+export function TaskFormModal({ users, projects, editingTask, onClose, onSaved }: TaskFormModalProps) {
   const { showToast } = useToast();
   const isEditing = Boolean(editingTask);
 
@@ -36,6 +38,7 @@ export function TaskFormModal({ users, editingTask, onClose, onSaved }: TaskForm
   const [dueDate, setDueDate] = useState(toDateInputValue(editingTask?.dueDate ?? null));
   const [dateError, setDateError] = useState<string | undefined>(() => validateDates(startDate, dueDate));
   const [assignedToUserId, setAssignedToUserId] = useState(editingTask?.assignedTo.id ?? users[0]?.id ?? "");
+  const [projectId, setProjectId] = useState(editingTask?.project?.id ?? "");
   const [status, setStatus] = useState<TaskStatus>(editingTask?.status ?? "Pending");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -63,6 +66,7 @@ export function TaskFormModal({ users, editingTask, onClose, onSaved }: TaskForm
         description: description || undefined,
         startDate: startDate ? new Date(startDate).toISOString() : null,
         dueDate: dueDate ? new Date(dueDate).toISOString() : null,
+        projectId: projectId || null,
         assignedToUserId,
       };
 
@@ -112,6 +116,22 @@ export function TaskFormModal({ users, editingTask, onClose, onSaved }: TaskForm
           onChange={(e) => handleDueDateChange(e.target.value)}
           error={dateError}
         />
+
+        <label className="block space-y-1">
+          <span className="text-sm font-medium text-slate-600">Proyecto</span>
+          <select
+            value={projectId}
+            onChange={(e) => setProjectId(e.target.value)}
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          >
+            <option value="">— Sin proyecto —</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </label>
 
         <label className="block space-y-1">
           <span className="text-sm font-medium text-slate-600">Asignado a</span>

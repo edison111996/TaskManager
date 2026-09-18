@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using TaskManager.Application.Auth;
 using TaskManager.Application.Modules;
+using TaskManager.Application.Projects;
 using TaskManager.Application.Reports;
 using TaskManager.Application.Roles;
 using TaskManager.Application.Tasks;
@@ -18,6 +19,7 @@ public static class DependencyInjection
         services.AddScoped<IModuleService, ModuleService>();
         services.AddScoped<ITaskService, TaskService>();
         services.AddScoped<IReportService, ReportService>();
+        services.AddScoped<IProjectService, ProjectService>();
 
         return services;
     }

@@ -8,6 +8,7 @@ import { useToast } from "../components/ToastProvider";
 import { useAuth } from "../auth/AuthContext";
 import { listTasks, deleteTask, exportTasksPdf, type TaskItemDto } from "../api/tasks";
 import { listAssignableUsers, type UserLookupDto } from "../api/users";
+import { listActiveProjects, type ProjectLookupDto } from "../api/projects";
 import { STATUS_LABELS, STATUS_TONES } from "../utils/taskStatus";
 import { TaskFormModal } from "./TaskFormModal";
 import { TaskCalendarView } from "../components/TaskCalendarView";
@@ -19,6 +20,7 @@ export function TasksPage() {
   const { hasPermission } = useAuth();
   const [tasks, setTasks] = useState<TaskItemDto[]>([]);
   const [users, setUsers] = useState<UserLookupDto[]>([]);
+  const [projects, setProjects] = useState<ProjectLookupDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<TaskItemDto | null>(null);
@@ -41,6 +43,7 @@ export function TasksPage() {
   useEffect(() => {
     loadTasks();
     listAssignableUsers().then(setUsers).catch(() => undefined);
+    listActiveProjects().then(setProjects).catch(() => undefined);
   }, []);
 
   async function handleDelete(task: TaskItemDto) {
@@ -124,6 +127,7 @@ export function TasksPage() {
               header: "Estado",
               render: (t) => <Badge tone={STATUS_TONES[t.status]}>{STATUS_LABELS[t.status]}</Badge>,
             },
+            { header: "Proyecto", render: (t) => t.project?.name ?? "—" },
             { header: "Asignado a", render: (t) => `${t.assignedTo.firstName} ${t.assignedTo.lastName}` },
             {
               header: "Fecha límite",
@@ -157,11 +161,14 @@ export function TasksPage() {
         <TaskCalendarView tasks={tasks} />
       )}
 
-      {isCreating && <TaskFormModal users={users} onClose={() => setIsCreating(false)} onSaved={loadTasks} />}
+      {isCreating && (
+        <TaskFormModal users={users} projects={projects} onClose={() => setIsCreating(false)} onSaved={loadTasks} />
+      )}
 
       {editingTask && canEdit && (
         <TaskFormModal
           users={users}
+          projects={projects}
           editingTask={editingTask}
           onClose={() => setEditingTask(null)}
           onSaved={loadTasks}

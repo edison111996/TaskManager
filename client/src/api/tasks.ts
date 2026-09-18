@@ -9,6 +9,11 @@ export interface TaskUserDto {
 
 export type TaskStatus = "Pending" | "InProgress" | "Done";
 
+export interface TaskProjectDto {
+  id: string;
+  name: string;
+}
+
 export interface TaskItemDto {
   id: string;
   title: string;
@@ -16,6 +21,7 @@ export interface TaskItemDto {
   status: TaskStatus;
   startDate: string | null;
   dueDate: string | null;
+  project: TaskProjectDto | null;
   assignedTo: TaskUserDto;
   createdBy: TaskUserDto;
   commentCount: number;
@@ -47,6 +53,7 @@ export interface CreateTaskInput {
   description?: string;
   startDate?: string | null;
   dueDate?: string | null;
+  projectId?: string | null;
   assignedToUserId: string;
 }
 
@@ -55,6 +62,7 @@ export interface UpdateTaskInput {
   description?: string;
   startDate?: string | null;
   dueDate?: string | null;
+  projectId?: string | null;
   status: TaskStatus;
   assignedToUserId: string;
 }

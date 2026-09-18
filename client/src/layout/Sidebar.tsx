@@ -19,6 +19,7 @@ const GROUPS: NavGroup[] = [
     label: "Tareas",
     items: [
       { to: "/tasks", label: "Tareas", requiredPermission: "Tasks:Read" },
+      { to: "/projects", label: "Proyectos", requiredPermission: "Tasks:Read" },
       { to: "/reports", label: "Informes", requiredPermission: "Reports:Read" },
     ],
   },

@@ -4,6 +4,8 @@ namespace TaskManager.Application.Tasks.Dtos;
 
 public record TaskUserDto(Guid Id, string FirstName, string LastName, string Email);
 
+public record TaskProjectDto(Guid Id, string Name);
+
 public record TaskCommentDto(Guid Id, string Text, TaskUserDto Author, DateTime CreatedAt);
 
 public record TaskStatusHistoryDto(
@@ -20,6 +22,7 @@ public record TaskItemDto(
     string Status,
     DateTime? StartDate,
     DateTime? DueDate,
+    TaskProjectDto? Project,
     TaskUserDto AssignedTo,
     TaskUserDto CreatedBy,
     int CommentCount,
@@ -32,6 +35,7 @@ public record TaskItemDetailDto(
     string Status,
     DateTime? StartDate,
     DateTime? DueDate,
+    TaskProjectDto? Project,
     TaskUserDto AssignedTo,
     TaskUserDto CreatedBy,
     IReadOnlyCollection<TaskCommentDto> Comments,
@@ -43,6 +47,7 @@ public record CreateTaskRequest(
     string? Description,
     DateTime? StartDate,
     DateTime? DueDate,
+    Guid? ProjectId,
     [Required] Guid AssignedToUserId);
 
 public record UpdateTaskRequest(
@@ -50,6 +55,7 @@ public record UpdateTaskRequest(
     string? Description,
     DateTime? StartDate,
     DateTime? DueDate,
+    Guid? ProjectId,
     [Required] string Status,
     [Required] Guid AssignedToUserId);
 
