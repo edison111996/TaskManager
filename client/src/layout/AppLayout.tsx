@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { LogOut, Menu } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { Sidebar } from "./Sidebar";
 
@@ -74,7 +75,7 @@ export function AppLayout() {
             aria-label="Abrir o cerrar menú"
             className="shrink-0 rounded-lg p-2 text-slate-500 hover:bg-slate-100"
           >
-            ☰
+            <Menu size={20} />
           </button>
 
           <span className="min-w-0 flex-1 truncate text-right text-sm text-slate-500 sm:text-left">
@@ -83,9 +84,10 @@ export function AppLayout() {
           </span>
           <button
             onClick={handleLogout}
-            className="shrink-0 rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200"
           >
-            Cerrar sesión
+            <LogOut size={15} />
+            <span className="hidden sm:inline">Cerrar sesión</span>
           </button>
         </header>
         <main className="flex-1 overflow-x-auto bg-slate-50 p-4 sm:p-6">

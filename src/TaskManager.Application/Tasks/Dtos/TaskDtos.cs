@@ -12,6 +12,7 @@ public record TaskStatusHistoryDto(
     Guid Id,
     string? FromStatus,
     string ToStatus,
+    string? Comment,
     TaskUserDto ChangedBy,
     DateTime CreatedAt);
 
@@ -57,6 +58,9 @@ public record UpdateTaskRequest(
     DateTime? DueDate,
     Guid? ProjectId,
     [Required] string Status,
+    // Obligatorio solo cuando Status difiere del estado actual de la tarea —
+    // TaskService.UpdateAsync es quien valida eso, acá no puede saberse de antemano.
+    string? StatusChangeComment,
     [Required] Guid AssignedToUserId);
 
 public record AddCommentRequest([Required] string Text);

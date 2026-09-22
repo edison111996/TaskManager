@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { Calendar, FileDown, FolderKanban, List, Pencil, Plus, Trash2 } from "lucide-react";
 import { Table } from "../components/Table";
-import { Badge } from "../components/Badge";
+import { StatusBadge } from "../components/StatusBadge";
 import { Button } from "../components/Button";
 import { LoadingState } from "../components/LoadingState";
 import { useToast } from "../components/ToastProvider";
@@ -9,11 +10,14 @@ import { useAuth } from "../auth/AuthContext";
 import { listTasks, deleteTask, exportTasksPdf, type TaskItemDto } from "../api/tasks";
 import { listAssignableUsers, type UserLookupDto } from "../api/users";
 import { listActiveProjects, type ProjectLookupDto } from "../api/projects";
-import { STATUS_LABELS, STATUS_TONES } from "../utils/taskStatus";
 import { TaskFormModal } from "./TaskFormModal";
 import { TaskCalendarView } from "../components/TaskCalendarView";
+import { TaskKanbanView } from "../components/TaskKanbanView";
 
-type ViewMode = "list" | "calendar";
+type ViewMode = "list" | "calendar" | "kanban";
+
+const VIEW_LABELS: Record<ViewMode, string> = { list: "Lista", calendar: "Calendario", kanban: "Kanban" };
+const VIEW_ICONS: Record<ViewMode, typeof List> = { list: List, calendar: Calendar, kanban: FolderKanban };
 
 export function TasksPage() {
   const { showToast } = useToast();
@@ -87,24 +91,32 @@ export function TasksPage() {
         <h1 className="text-2xl font-bold text-slate-800">Tareas</h1>
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex rounded-lg border border-slate-300 p-0.5">
-            {(["list", "calendar"] as ViewMode[]).map((mode) => (
-              <button
-                key={mode}
-                onClick={() => setViewMode(mode)}
-                className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${
-                  viewMode === mode ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                {mode === "list" ? "Lista" : "Calendario"}
-              </button>
-            ))}
+            {(Object.keys(VIEW_LABELS) as ViewMode[]).map((mode) => {
+              const Icon = VIEW_ICONS[mode];
+              return (
+                <button
+                  key={mode}
+                  onClick={() => setViewMode(mode)}
+                  className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-sm font-medium transition-colors ${
+                    viewMode === mode ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  <Icon size={14} />
+                  {VIEW_LABELS[mode]}
+                </button>
+              );
+            })}
           </div>
           {viewMode === "list" && (
-            <Button variant="secondary" isLoading={isExporting} onClick={handleExportPdf}>
+            <Button variant="secondary" icon={FileDown} isLoading={isExporting} onClick={handleExportPdf}>
               Exportar PDF
             </Button>
           )}
-          {canCreate && <Button onClick={() => setIsCreating(true)}>+ Nueva tarea</Button>}
+          {canCreate && (
+            <Button icon={Plus} onClick={() => setIsCreating(true)}>
+              Nueva tarea
+            </Button>
+          )}
         </div>
       </div>
 
@@ -114,6 +126,7 @@ export function TasksPage() {
         <Table
           rows={tasks}
           getRowKey={(t) => t.id}
+          emptyMessage="Todavía no hay tareas. Creá la primera con el botón de arriba."
           columns={[
             {
               header: "Título",
@@ -125,7 +138,7 @@ export function TasksPage() {
             },
             {
               header: "Estado",
-              render: (t) => <Badge tone={STATUS_TONES[t.status]}>{STATUS_LABELS[t.status]}</Badge>,
+              render: (t) => <StatusBadge status={t.status} />,
             },
             { header: "Proyecto", render: (t) => t.project?.name ?? "—" },
             { header: "Asignado a", render: (t) => `${t.assignedTo.firstName} ${t.assignedTo.lastName}` },
@@ -141,12 +154,17 @@ export function TasksPage() {
                     render: (t: TaskItemDto) => (
                       <div className="flex gap-2">
                         {canEdit && (
-                          <Button variant="secondary" onClick={() => setEditingTask(t)}>
+                          <Button variant="secondary" icon={Pencil} onClick={() => setEditingTask(t)}>
                             Editar
                           </Button>
                         )}
                         {canDelete && (
-                          <Button variant="danger" isLoading={deletingId === t.id} onClick={() => handleDelete(t)}>
+                          <Button
+                            variant="danger"
+                            icon={Trash2}
+                            isLoading={deletingId === t.id}
+                            onClick={() => handleDelete(t)}
+                          >
                             Eliminar
                           </Button>
                         )}
@@ -157,8 +175,10 @@ export function TasksPage() {
               : []),
           ]}
         />
-      ) : (
+      ) : viewMode === "calendar" ? (
         <TaskCalendarView tasks={tasks} />
+      ) : (
+        <TaskKanbanView tasks={tasks} onTaskUpdated={loadTasks} />
       )}
 
       {isCreating && (

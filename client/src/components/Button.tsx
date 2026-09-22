@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes } from "react";
+import type { LucideIcon } from "lucide-react";
 import { Spinner } from "./Spinner";
 
 // "variant" es un patrón muy común: en vez de mandar clases de CSS sueltas desde
@@ -10,6 +11,8 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
   /** Muestra un spinner y deshabilita el botón — para no dejar hacer doble clic mientras se guarda. */
   isLoading?: boolean;
+  /** Ícono a la izquierda del texto — se oculta solo mientras isLoading muestra el spinner. */
+  icon?: LucideIcon;
 }
 
 const VARIANT_CLASSES: Record<Variant, string> = {
@@ -21,6 +24,7 @@ const VARIANT_CLASSES: Record<Variant, string> = {
 export function Button({
   variant = "primary",
   isLoading = false,
+  icon: Icon,
   disabled,
   className = "",
   children,
@@ -32,7 +36,7 @@ export function Button({
       className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:opacity-60 ${VARIANT_CLASSES[variant]} ${className}`}
       {...props}
     >
-      {isLoading && <Spinner className="text-current" />}
+      {isLoading ? <Spinner className="text-current" /> : Icon && <Icon size={16} />}
       {children}
     </button>
   );

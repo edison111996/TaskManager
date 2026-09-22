@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { Table } from "../components/Table";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
@@ -62,7 +63,11 @@ export function UsersPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-800">Usuarios</h1>
-        {canCreate && <Button onClick={() => setIsCreating(true)}>+ Nuevo usuario</Button>}
+        {canCreate && (
+          <Button icon={Plus} onClick={() => setIsCreating(true)}>
+            Nuevo usuario
+          </Button>
+        )}
       </div>
 
       {error && <p className="text-red-600">{error}</p>}
@@ -70,6 +75,7 @@ export function UsersPage() {
       <Table
         rows={users}
         getRowKey={(u) => u.id}
+        emptyMessage="Todavía no hay usuarios cargados."
         columns={[
           { header: "Nombre", render: (u) => `${u.firstName} ${u.lastName}` },
           { header: "Correo", render: (u) => u.email },
@@ -97,12 +103,17 @@ export function UsersPage() {
                   render: (u: UserDto) => (
                     <div className="flex gap-2">
                       {canEdit && (
-                        <Button variant="secondary" onClick={() => setEditingUser(u)}>
+                        <Button variant="secondary" icon={Pencil} onClick={() => setEditingUser(u)}>
                           Editar
                         </Button>
                       )}
                       {canDelete && (
-                        <Button variant="danger" isLoading={deletingId === u.id} onClick={() => handleDelete(u)}>
+                        <Button
+                          variant="danger"
+                          icon={Trash2}
+                          isLoading={deletingId === u.id}
+                          onClick={() => handleDelete(u)}
+                        >
                           Eliminar
                         </Button>
                       )}

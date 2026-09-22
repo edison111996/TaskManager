@@ -102,12 +102,18 @@ public class TaskService : ITaskService
 
         if (status != task.Status)
         {
+            if (string.IsNullOrWhiteSpace(request.StatusChangeComment))
+            {
+                throw new ValidationAppException("Tenés que justificar por qué cambia el estado de la tarea.");
+            }
+
             _db.TaskStatusHistories.Add(new TaskStatusHistory
             {
                 TaskItemId = task.Id,
                 FromStatus = task.Status,
                 ToStatus = status,
-                ChangedByUserId = changedByUserId
+                ChangedByUserId = changedByUserId,
+                Comment = request.StatusChangeComment.Trim()
             });
         }
 
@@ -277,7 +283,7 @@ public class TaskService : ITaskService
             .ToList(),
         task.StatusHistory
             .OrderBy(h => h.CreatedAt)
-            .Select(h => new TaskStatusHistoryDto(h.Id, h.FromStatus?.ToString(), h.ToStatus.ToString(), ToUserDto(h.ChangedByUser), h.CreatedAt))
+            .Select(h => new TaskStatusHistoryDto(h.Id, h.FromStatus?.ToString(), h.ToStatus.ToString(), h.Comment, ToUserDto(h.ChangedByUser), h.CreatedAt))
             .ToList(),
         task.CreatedAt);
 }

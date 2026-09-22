@@ -40,8 +40,12 @@ export function TaskFormModal({ users, projects, editingTask, onClose, onSaved }
   const [assignedToUserId, setAssignedToUserId] = useState(editingTask?.assignedTo.id ?? users[0]?.id ?? "");
   const [projectId, setProjectId] = useState(editingTask?.project?.id ?? "");
   const [status, setStatus] = useState<TaskStatus>(editingTask?.status ?? "Pending");
+  const [statusChangeComment, setStatusChangeComment] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const isStatusChanging = isEditing && editingTask !== undefined && status !== editingTask.status;
+  const isStatusCommentMissing = isStatusChanging && !statusChangeComment.trim();
 
   // Un <input type="date"> solo dispara onChange cuando ya se eligió una fecha completa
   // (no tecla por tecla como un input de texto), así que acá sí conviene validar al toque
@@ -71,7 +75,11 @@ export function TaskFormModal({ users, projects, editingTask, onClose, onSaved }
       };
 
       if (isEditing && editingTask) {
-        await updateTask(editingTask.id, { ...payload, status });
+        await updateTask(editingTask.id, {
+          ...payload,
+          status,
+          statusChangeComment: isStatusChanging ? statusChangeComment.trim() : undefined,
+        });
       } else {
         await createTask(payload);
       }
@@ -166,13 +174,28 @@ export function TaskFormModal({ users, projects, editingTask, onClose, onSaved }
           </label>
         )}
 
+        {isStatusChanging && (
+          <label className="block space-y-1">
+            <span className="text-sm font-medium text-slate-600">
+              ¿Por qué cambia el estado a "{STATUS_LABELS[status]}"?
+            </span>
+            <textarea
+              value={statusChangeComment}
+              onChange={(e) => setStatusChangeComment(e.target.value)}
+              rows={2}
+              placeholder="Justificá el cambio de estado — queda en el historial de seguimiento de la tarea."
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            />
+          </label>
+        )}
+
         {error && <p className="text-sm text-red-600">{error}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancelar
           </Button>
-          <Button type="submit" isLoading={isSubmitting} disabled={!!dateError}>
+          <Button type="submit" isLoading={isSubmitting} disabled={!!dateError || isStatusCommentMissing}>
             Guardar
           </Button>
         </div>

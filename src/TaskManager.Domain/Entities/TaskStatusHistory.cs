@@ -14,4 +14,8 @@ public class TaskStatusHistory : BaseEntity
 
     public Guid ChangedByUserId { get; set; }
     public User ChangedByUser { get; set; } = null!;
+
+    /// <summary>Null en la primera entrada (creación). Obligatorio en cualquier
+    /// transición real de estado — la lógica vive en TaskService, no acá.</summary>
+    public string? Comment { get; set; }
 }

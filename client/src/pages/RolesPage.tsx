@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { listRoles, deleteRole, type RoleDto } from "../api/roles";
 import { listModules, type ModuleDto } from "../api/modules";
 import { Card } from "../components/Card";
@@ -55,10 +56,20 @@ export function RolesPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-800">Roles</h1>
-        {canCreate && <Button onClick={() => setIsCreating(true)}>+ Nuevo rol</Button>}
+        {canCreate && (
+          <Button icon={Plus} onClick={() => setIsCreating(true)}>
+            Nuevo rol
+          </Button>
+        )}
       </div>
 
       {error && <p className="text-red-600">{error}</p>}
+
+      {roles.length === 0 && (
+        <p className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-400">
+          Todavía no hay roles. Creá el primero con el botón de arriba.
+        </p>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         {roles.map((role) => (
@@ -70,12 +81,17 @@ export function RolesPage() {
               </div>
               <div className="flex shrink-0 gap-2">
                 {canEdit && (
-                  <Button variant="secondary" onClick={() => setEditingRole(role)}>
+                  <Button variant="secondary" icon={Pencil} onClick={() => setEditingRole(role)}>
                     Editar
                   </Button>
                 )}
                 {canDelete && (
-                  <Button variant="danger" isLoading={deletingId === role.id} onClick={() => handleDelete(role)}>
+                  <Button
+                    variant="danger"
+                    icon={Trash2}
+                    isLoading={deletingId === role.id}
+                    onClick={() => handleDelete(role)}
+                  >
                     Eliminar
                   </Button>
                 )}

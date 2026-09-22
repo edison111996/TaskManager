@@ -12,6 +12,7 @@ public class TaskStatusHistoryConfiguration : IEntityTypeConfiguration<TaskStatu
 
         builder.Property(h => h.FromStatus).HasConversion<string>().HasMaxLength(20);
         builder.Property(h => h.ToStatus).IsRequired().HasConversion<string>().HasMaxLength(20);
+        builder.Property(h => h.Comment).HasMaxLength(1000);
 
         // Cascade acá sí tiene sentido (a diferencia de TaskItem->User): si se borra la
         // tarea, no tiene sentido conservar su historial huérfano.

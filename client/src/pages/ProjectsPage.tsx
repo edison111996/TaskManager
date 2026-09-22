@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { Table } from "../components/Table";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
@@ -51,7 +52,11 @@ export function ProjectsPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-800">Proyectos</h1>
-        {canCreate && <Button onClick={() => setIsCreating(true)}>+ Nuevo proyecto</Button>}
+        {canCreate && (
+          <Button icon={Plus} onClick={() => setIsCreating(true)}>
+            Nuevo proyecto
+          </Button>
+        )}
       </div>
 
       {error && <p className="text-red-600">{error}</p>}
@@ -59,6 +64,7 @@ export function ProjectsPage() {
       <Table
         rows={projects}
         getRowKey={(p) => p.id}
+        emptyMessage="Todavía no hay proyectos. Creá el primero con el botón de arriba."
         columns={[
           { header: "Nombre", render: (p) => p.name },
           { header: "Descripción", render: (p) => p.description ?? "—" },
@@ -73,12 +79,17 @@ export function ProjectsPage() {
                   render: (p: ProjectDto) => (
                     <div className="flex gap-2">
                       {canEdit && (
-                        <Button variant="secondary" onClick={() => setEditingProject(p)}>
+                        <Button variant="secondary" icon={Pencil} onClick={() => setEditingProject(p)}>
                           Editar
                         </Button>
                       )}
                       {canDelete && (
-                        <Button variant="danger" isLoading={deletingId === p.id} onClick={() => handleDelete(p)}>
+                        <Button
+                          variant="danger"
+                          icon={Trash2}
+                          isLoading={deletingId === p.id}
+                          onClick={() => handleDelete(p)}
+                        >
                           Eliminar
                         </Button>
                       )}

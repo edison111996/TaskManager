@@ -39,6 +39,7 @@ export interface TaskStatusHistoryDto {
   id: string;
   fromStatus: TaskStatus | null;
   toStatus: TaskStatus;
+  comment: string | null;
   changedBy: TaskUserDto;
   createdAt: string;
 }
@@ -64,6 +65,8 @@ export interface UpdateTaskInput {
   dueDate?: string | null;
   projectId?: string | null;
   status: TaskStatus;
+  /** Obligatorio (lo valida el backend) solo cuando `status` cambia respecto al actual. */
+  statusChangeComment?: string | null;
   assignedToUserId: string;
 }
 

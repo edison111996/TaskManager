@@ -12,11 +12,12 @@ interface TableProps<T> {
   columns: Column<T>[];
   rows: T[];
   getRowKey: (row: T) => string;
+  emptyMessage?: string;
 }
 
-export function Table<T>({ columns, rows, getRowKey }: TableProps<T>) {
+export function Table<T>({ columns, rows, getRowKey, emptyMessage = "No hay datos para mostrar." }: TableProps<T>) {
   return (
-    <div className="overflow-x-auto rounded-xl bg-white shadow-sm">
+    <div className="overflow-x-auto rounded-xl border border-slate-200/70 bg-white shadow-sm">
       <table className="w-full text-left text-sm">
         <thead className="bg-slate-50 text-slate-500">
           <tr>
@@ -28,15 +29,23 @@ export function Table<T>({ columns, rows, getRowKey }: TableProps<T>) {
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
-          {rows.map((row) => (
-            <tr key={getRowKey(row)}>
-              {columns.map((column) => (
-                <td key={column.header} className="px-4 py-3">
-                  {column.render(row)}
-                </td>
-              ))}
+          {rows.length === 0 ? (
+            <tr>
+              <td colSpan={columns.length} className="px-4 py-10 text-center text-sm text-slate-400">
+                {emptyMessage}
+              </td>
             </tr>
-          ))}
+          ) : (
+            rows.map((row) => (
+              <tr key={getRowKey(row)} className="transition-colors hover:bg-slate-50/80">
+                {columns.map((column) => (
+                  <td key={column.header} className="px-4 py-3">
+                    {column.render(row)}
+                  </td>
+                ))}
+              </tr>
+            ))
+          )}
         </tbody>
       </table>
     </div>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { listModules, deleteModule, type ModuleDto } from "../api/modules";
 import { Card } from "../components/Card";
 import { Badge } from "../components/Badge";
@@ -51,10 +52,20 @@ export function ModulesPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-800">Módulos</h1>
-        {canCreate && <Button onClick={() => setIsCreating(true)}>+ Nuevo módulo</Button>}
+        {canCreate && (
+          <Button icon={Plus} onClick={() => setIsCreating(true)}>
+            Nuevo módulo
+          </Button>
+        )}
       </div>
 
       {error && <p className="text-red-600">{error}</p>}
+
+      {modules.length === 0 && (
+        <p className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-400">
+          Todavía no hay módulos. Creá el primero con el botón de arriba.
+        </p>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         {modules.map((module) => (
@@ -66,12 +77,17 @@ export function ModulesPage() {
               </div>
               <div className="flex shrink-0 gap-2">
                 {canEdit && (
-                  <Button variant="secondary" onClick={() => setEditingModule(module)}>
+                  <Button variant="secondary" icon={Pencil} onClick={() => setEditingModule(module)}>
                     Editar
                   </Button>
                 )}
                 {canDelete && (
-                  <Button variant="danger" isLoading={deletingId === module.id} onClick={() => handleDelete(module)}>
+                  <Button
+                    variant="danger"
+                    icon={Trash2}
+                    isLoading={deletingId === module.id}
+                    onClick={() => handleDelete(module)}
+                  >
                     Eliminar
                   </Button>
                 )}

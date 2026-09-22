@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { TaskItemDto } from "../api/tasks";
-import { Badge } from "./Badge";
-import { STATUS_LABELS, STATUS_TONES } from "../utils/taskStatus";
+import { StatusBadge } from "./StatusBadge";
+import { STATUS_BORDER_CLASSES } from "../utils/taskStatus";
 import { addDays, formatDateKey, getMonthGridDays, getWeekDays, isSameDay, isoDateKey } from "../utils/calendar";
 
 type ViewMode = "day" | "week" | "month";
@@ -60,7 +61,7 @@ export function TaskCalendarView({ tasks }: TaskCalendarViewProps) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <button onClick={goPrev} aria-label="Anterior" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100">
-            ←
+            <ChevronLeft size={18} />
           </button>
           <button
             onClick={goToday}
@@ -69,7 +70,7 @@ export function TaskCalendarView({ tasks }: TaskCalendarViewProps) {
             Hoy
           </button>
           <button onClick={goNext} aria-label="Siguiente" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100">
-            →
+            <ChevronRight size={18} />
           </button>
           <span className="ml-1 font-medium capitalize text-slate-700">{headerLabel}</span>
         </div>
@@ -98,10 +99,11 @@ export function TaskCalendarView({ tasks }: TaskCalendarViewProps) {
 
 function TaskChip({ task }: { task: TaskItemDto }) {
   return (
-    <Link to={`/tasks/${task.id}`}>
-      <Badge tone={STATUS_TONES[task.status]} className="block w-full truncate text-left">
-        {task.title}
-      </Badge>
+    <Link
+      to={`/tasks/${task.id}`}
+      className={`block truncate rounded border-l-4 bg-white px-1.5 py-0.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 ${STATUS_BORDER_CLASSES[task.status]}`}
+    >
+      {task.title}
     </Link>
   );
 }
@@ -196,10 +198,10 @@ function DayList({ currentDate, tasksByDay }: { currentDate: Date; tasksByDay: T
         <Link
           key={task.id}
           to={`/tasks/${task.id}`}
-          className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 hover:border-blue-300"
+          className={`flex items-center justify-between rounded-xl border border-l-4 border-slate-200 bg-white p-4 hover:border-blue-300 ${STATUS_BORDER_CLASSES[task.status]}`}
         >
           <span className="font-medium text-slate-700">{task.title}</span>
-          <Badge tone={STATUS_TONES[task.status]}>{STATUS_LABELS[task.status]}</Badge>
+          <StatusBadge status={task.status} />
         </Link>
       ))}
     </div>
