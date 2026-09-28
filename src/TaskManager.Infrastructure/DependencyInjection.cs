@@ -5,12 +5,16 @@ using TaskManager.Application.Common.Interfaces;
 using TaskManager.Application.Common.Options;
 using TaskManager.Infrastructure.Persistence;
 using TaskManager.Infrastructure.Security;
+using TaskManager.Infrastructure.Storage;
 
 namespace TaskManager.Infrastructure;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddInfrastructure(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        string uploadsFolder)
     {
         services.AddDbContext<TaskManagerDbContext>(options =>
             options.UseSqlServer(configuration.GetConnectionString("Default")));
@@ -21,6 +25,7 @@ public static class DependencyInjection
 
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddSingleton<IJwtTokenGenerator, JwtTokenGenerator>();
+        services.AddSingleton<IFileStorageService>(new LocalFileStorageService(uploadsFolder));
 
         return services;
     }

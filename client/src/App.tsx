@@ -11,6 +11,11 @@ import { TasksPage } from "./pages/TasksPage";
 import { TaskDetailPage } from "./pages/TaskDetailPage";
 import { ProjectsPage } from "./pages/ProjectsPage";
 import { ReportsPage } from "./pages/ReportsPage";
+import { FormsAdminPage } from "./pages/FormsAdminPage";
+import { FormEditorPage } from "./pages/FormEditorPage";
+import { FormSubmissionsPage } from "./pages/FormSubmissionsPage";
+import { FormsListPage } from "./pages/FormsListPage";
+import { FormFillPage } from "./pages/FormFillPage";
 
 export default function App() {
   return (
@@ -33,6 +38,12 @@ export default function App() {
           <Route path="tasks/:id" element={<TaskDetailPage />} />
           <Route path="projects" element={<ProjectsPage />} />
           <Route path="reports" element={<ReportsPage />} />
+          <Route path="forms" element={<FormsListPage />} />
+          <Route path="forms/admin" element={<FormsAdminPage />} />
+          <Route path="forms/admin/new" element={<FormEditorPage />} />
+          <Route path="forms/admin/:id" element={<FormEditorPage />} />
+          <Route path="forms/admin/:id/submissions" element={<FormSubmissionsPage />} />
+          <Route path="forms/:id" element={<FormFillPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

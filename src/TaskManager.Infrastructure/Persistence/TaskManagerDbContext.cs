@@ -21,6 +21,10 @@ public class TaskManagerDbContext : DbContext, IApplicationDbContext
     public DbSet<TaskComment> TaskComments => Set<TaskComment>();
     public DbSet<TaskStatusHistory> TaskStatusHistories => Set<TaskStatusHistory>();
     public DbSet<Project> Projects => Set<Project>();
+    public DbSet<FormTemplate> FormTemplates => Set<FormTemplate>();
+    public DbSet<FormField> FormFields => Set<FormField>();
+    public DbSet<FormSubmission> FormSubmissions => Set<FormSubmission>();
+    public DbSet<FormAnswer> FormAnswers => Set<FormAnswer>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

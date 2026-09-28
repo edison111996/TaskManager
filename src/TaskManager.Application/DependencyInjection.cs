@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using TaskManager.Application.Auth;
+using TaskManager.Application.Forms;
 using TaskManager.Application.Modules;
 using TaskManager.Application.Projects;
 using TaskManager.Application.Reports;
@@ -20,6 +21,7 @@ public static class DependencyInjection
         services.AddScoped<ITaskService, TaskService>();
         services.AddScoped<IReportService, ReportService>();
         services.AddScoped<IProjectService, ProjectService>();
+        services.AddScoped<IFormService, FormService>();
 
         return services;
     }

@@ -16,6 +16,10 @@ public interface IApplicationDbContext
     DbSet<TaskComment> TaskComments { get; }
     DbSet<TaskStatusHistory> TaskStatusHistories { get; }
     DbSet<Project> Projects { get; }
+    DbSet<FormTemplate> FormTemplates { get; }
+    DbSet<FormField> FormFields { get; }
+    DbSet<FormSubmission> FormSubmissions { get; }
+    DbSet<FormAnswer> FormAnswers { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

@@ -23,7 +23,8 @@ public static class DbSeeder
         new("Roles", "Roles", "Gestión de roles"),
         new("Modules", "Módulos", "Catálogo de módulos y permisos"),
         new("Tasks", "Tareas", "Seguimiento de tareas por usuario"),
-        new("Reports", "Informes", "Reportes agregados del sistema")
+        new("Reports", "Informes", "Reportes agregados del sistema"),
+        new("Forms", "Formularios", "Constructor de formularios dinámicos")
     ];
 
     public static async Task SeedAsync(TaskManagerDbContext context, IPasswordHasher passwordHasher)

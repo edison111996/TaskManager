@@ -3,6 +3,8 @@ import { NavLink, useLocation } from "react-router-dom";
 import {
   BarChart3,
   ChevronRight,
+  ClipboardList,
+  FileEdit,
   FolderKanban,
   Home,
   Layers,
@@ -18,8 +20,9 @@ interface NavItem {
   to: string;
   label: string;
   icon: LucideIcon;
-  /** Solo se muestra si el usuario tiene este permiso (viene de /api/auth/me) */
-  requiredPermission: string;
+  /** Sin esto, el ítem se muestra a cualquier usuario autenticado (ej. "Diligenciar
+   * formularios" — no hace falta ningún permiso especial, alcanza con estar logueado). */
+  requiredPermission?: string;
 }
 
 interface NavGroup {
@@ -34,6 +37,13 @@ const GROUPS: NavGroup[] = [
       { to: "/tasks", label: "Tareas", icon: ListTodo, requiredPermission: "Tasks:Read" },
       { to: "/projects", label: "Proyectos", icon: FolderKanban, requiredPermission: "Tasks:Read" },
       { to: "/reports", label: "Informes", icon: BarChart3, requiredPermission: "Reports:Read" },
+    ],
+  },
+  {
+    label: "Formularios",
+    items: [
+      { to: "/forms", label: "Diligenciar", icon: ClipboardList },
+      { to: "/forms/admin", label: "Constructor", icon: FileEdit, requiredPermission: "Forms:Read" },
     ],
   },
   {
@@ -147,7 +157,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               <SidebarGroup
                 key={group.label}
                 group={group}
-                visibleItems={group.items.filter((item) => permissions.includes(item.requiredPermission))}
+                visibleItems={group.items.filter(
+                  (item) => !item.requiredPermission || permissions.includes(item.requiredPermission),
+                )}
                 onNavigate={onClose}
               />
             ))}

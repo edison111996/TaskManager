@@ -73,7 +73,10 @@ async function authorizedFetch(path: string, options: ApiFetchOptions = {}): Pro
       ...rest,
       credentials: "include",
       headers: {
-        "Content-Type": "application/json",
+        // Con FormData (subida de archivos), NO hay que fijar Content-Type: el propio
+        // navegador arma "multipart/form-data; boundary=..." — si lo pisamos acá, el
+        // backend no puede parsear el body.
+        ...(rest.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
         ...(token && !skipAuth ? { Authorization: `Bearer ${token}` } : {}),
         ...headers,
       },
