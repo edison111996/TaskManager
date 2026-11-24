@@ -1,43 +1,37 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { listRoles, deleteRole, type RoleDto } from "../api/roles";
-import { listModules, type ModuleDto } from "../api/modules";
+import { listModules } from "../api/modules";
 import { Card } from "../components/Card";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { LoadingState } from "../components/LoadingState";
+import { ErrorState } from "../components/ErrorState";
+import { useFetch } from "../hooks/useFetch";
 import { useToast } from "../components/ToastProvider";
+import { useConfirm } from "../components/ConfirmProvider";
 import { useAuth } from "../auth/AuthContext";
 import { RoleFormModal } from "./RoleFormModal";
 
 export function RolesPage() {
   const { showToast } = useToast();
+  const confirm = useConfirm();
   const { hasPermission } = useAuth();
   const canCreate = hasPermission("Roles:Create");
   const canEdit = hasPermission("Roles:Edit");
   const canDelete = hasPermission("Roles:Delete");
-  const [roles, setRoles] = useState<RoleDto[]>([]);
-  const [modules, setModules] = useState<ModuleDto[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: roles = [], isLoading, error, reload: loadRoles, retry } = useFetch(
+    listRoles,
+    "No se pudo cargar la lista de roles.",
+  );
+  // Los módulos solo alimentan el formulario: si fallan, la página sigue funcionando.
+  const { data: modules = [] } = useFetch(listModules);
   const [editingRole, setEditingRole] = useState<RoleDto | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  function loadRoles() {
-    listRoles()
-      .then(setRoles)
-      .catch(() => setError("No se pudo cargar la lista de roles."))
-      .finally(() => setIsLoading(false));
-  }
-
-  useEffect(() => {
-    loadRoles();
-    listModules().then(setModules).catch(() => undefined);
-  }, []);
-
   async function handleDelete(role: RoleDto) {
-    if (!confirm(`¿Eliminar el rol "${role.name}"?`)) return;
+    if (!(await confirm({ message: `¿Eliminar el rol "${role.name}"?` }))) return;
     setDeletingId(role.id);
     try {
       await deleteRole(role.id);
@@ -51,6 +45,7 @@ export function RolesPage() {
   }
 
   if (isLoading) return <LoadingState />;
+  if (error && roles.length === 0) return <ErrorState message={error} onRetry={retry} />;
 
   return (
     <div className="space-y-4">
@@ -62,8 +57,6 @@ export function RolesPage() {
           </Button>
         )}
       </div>
-
-      {error && <p className="text-red-600">{error}</p>}
 
       {roles.length === 0 && (
         <p className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-400">

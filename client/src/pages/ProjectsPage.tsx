@@ -1,39 +1,35 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { Table } from "../components/Table";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { LoadingState } from "../components/LoadingState";
+import { ErrorState } from "../components/ErrorState";
+import { useFetch } from "../hooks/useFetch";
 import { useToast } from "../components/ToastProvider";
+import { useConfirm } from "../components/ConfirmProvider";
 import { useAuth } from "../auth/AuthContext";
 import { listProjects, deleteProject, type ProjectDto } from "../api/projects";
 import { ProjectFormModal } from "./ProjectFormModal";
 
 export function ProjectsPage() {
   const { showToast } = useToast();
+  const confirm = useConfirm();
   const { hasPermission } = useAuth();
   // La administración de proyectos reutiliza los permisos de Tasks — ver ProjectsController.
   const canCreate = hasPermission("Tasks:Create");
   const canEdit = hasPermission("Tasks:Edit");
   const canDelete = hasPermission("Tasks:Delete");
-  const [projects, setProjects] = useState<ProjectDto[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: projects = [], isLoading, error, reload: loadProjects, retry } = useFetch(
+    listProjects,
+    "No se pudo cargar la lista de proyectos.",
+  );
   const [editingProject, setEditingProject] = useState<ProjectDto | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  function loadProjects() {
-    listProjects()
-      .then(setProjects)
-      .catch(() => setError("No se pudo cargar la lista de proyectos."))
-      .finally(() => setIsLoading(false));
-  }
-
-  useEffect(loadProjects, []);
-
   async function handleDelete(project: ProjectDto) {
-    if (!confirm(`¿Eliminar el proyecto "${project.name}"? Las tareas que tenga quedarán sin proyecto.`)) return;
+    if (!(await confirm({ message: `¿Eliminar el proyecto "${project.name}"? Las tareas que tenga quedarán sin proyecto.` }))) return;
     setDeletingId(project.id);
     try {
       await deleteProject(project.id);
@@ -47,6 +43,7 @@ export function ProjectsPage() {
   }
 
   if (isLoading) return <LoadingState />;
+  if (error && projects.length === 0) return <ErrorState message={error} onRetry={retry} />;
 
   return (
     <div className="space-y-4">
@@ -58,8 +55,6 @@ export function ProjectsPage() {
           </Button>
         )}
       </div>
-
-      {error && <p className="text-red-600">{error}</p>}
 
       <Table
         rows={projects}

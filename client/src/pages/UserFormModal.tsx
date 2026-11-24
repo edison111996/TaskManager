@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from "react";
 import { Modal } from "../components/Modal";
 import { Input } from "../components/Input";
+import { PasswordInput } from "../components/PasswordInput";
 import { Button } from "../components/Button";
 import { createUser, updateUser, assignUserRoles, type UserDto } from "../api/users";
 import type { RoleDto } from "../api/roles";
 import { useToast } from "../components/ToastProvider";
+import { ApiError } from "../api/httpClient";
 
 interface UserFormModalProps {
   roles: RoleDto[];
@@ -40,7 +42,8 @@ function validateField(field: FieldName, value: string, isEditing: boolean): str
     case "password":
       if (isEditing) return undefined;
       if (!value) return "La contraseña es obligatoria.";
-      if (value.length < 6) return "Debe tener al menos 6 caracteres.";
+      if (value.length < 8) return "Debe tener al menos 8 caracteres.";
+      if (!/[A-Z]/.test(value) || !/\d/.test(value)) return "Debe incluir al menos una mayúscula y un número.";
       return undefined;
     case "phone": {
       if (!value.trim()) return undefined; // opcional
@@ -107,6 +110,10 @@ export function UserFormModal({ roles, editingUser, onClose, onSaved }: UserForm
       onClose();
     } catch (err) {
       const message = err instanceof Error ? err.message : "No se pudo guardar el usuario.";
+      // Si el backend rechazó campos concretos, los pintamos debajo de cada input.
+      if (err instanceof ApiError && Object.keys(err.errors).length > 0) {
+        setFieldErrors((prev) => ({ ...prev, ...(err.fieldMessages as FieldErrors) }));
+      }
       setError(message);
       showToast(message, "error");
     } finally {
@@ -152,14 +159,13 @@ export function UserFormModal({ roles, editingUser, onClose, onSaved }: UserForm
         />
 
         {!isEditing && (
-          <Input
+          <PasswordInput
             label="Contraseña"
-            type="password"
             value={password}
             onChange={(e) => handleFieldChange("password", e.target.value, setPassword)}
             onBlur={(e) => handleBlur("password", e.target.value)}
             error={fieldErrors.password}
-            minLength={6}
+            minLength={8}
             required
           />
         )}

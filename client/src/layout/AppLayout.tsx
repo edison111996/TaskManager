@@ -3,6 +3,24 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { LogOut, Menu } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { Sidebar } from "./Sidebar";
+import { ErrorBoundary } from "../components/ErrorBoundary";
+
+// Título de la sección actual para mostrarlo en el navbar. Se busca por prefijo,
+// de la ruta más específica a la más general.
+const PAGE_TITLES: [string, string][] = [
+  ["/forms/admin", "Constructor de formularios"],
+  ["/forms", "Formularios"],
+  ["/tasks", "Tareas"],
+  ["/projects", "Proyectos"],
+  ["/reports", "Informes"],
+  ["/users", "Usuarios"],
+  ["/roles", "Roles"],
+  ["/modules", "Módulos"],
+];
+
+function getPageTitle(pathname: string): string {
+  return PAGE_TITLES.find(([prefix]) => pathname.startsWith(prefix))?.[1] ?? "Inicio";
+}
 
 const DESKTOP_QUERY = "(min-width: 768px)";
 const SIDEBAR_STORAGE_KEY = "sidebarOpen";
@@ -65,11 +83,16 @@ export function AppLayout() {
     navigate("/login");
   }
 
+  const fullName = user ? `${user.firstName} ${user.lastName}`.trim() : "";
+  const initials =
+    ((user?.firstName?.[0] ?? "") + (user?.lastName?.[0] ?? "")).toUpperCase() ||
+    (user?.email?.[0] ?? "?").toUpperCase();
+
   return (
     <div className="flex min-h-screen">
       <Sidebar isOpen={isSidebarOpen} onClose={closeMobileSidebar} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-4 shadow-sm">
+        <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-slate-200 bg-white/90 px-4 py-3 shadow-sm backdrop-blur">
           <button
             onClick={() => setIsSidebarOpen((open) => !open)}
             aria-label="Abrir o cerrar menú"
@@ -78,20 +101,38 @@ export function AppLayout() {
             <Menu size={20} />
           </button>
 
-          <span className="min-w-0 flex-1 truncate text-right text-sm text-slate-500 sm:text-left">
-            <span className="hidden sm:inline">Sesión: </span>
-            <span className="font-medium text-slate-800">{user?.email}</span>
-          </span>
-          <button
-            onClick={handleLogout}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200"
-          >
-            <LogOut size={15} />
-            <span className="hidden sm:inline">Cerrar sesión</span>
-          </button>
+          <h1 className="min-w-0 flex-1 truncate text-base font-semibold text-slate-800 sm:text-lg">
+            {getPageTitle(location.pathname)}
+          </h1>
+
+          <div className="flex shrink-0 items-center gap-3">
+            <div className="flex items-center gap-2.5">
+              <span
+                aria-hidden="true"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-sm font-semibold text-white"
+              >
+                {initials}
+              </span>
+              <div className="hidden min-w-0 leading-tight sm:block">
+                <p className="truncate text-sm font-medium text-slate-800">{fullName}</p>
+                <p className="truncate text-xs text-slate-500">{user?.roles?.join(", ") || user?.email}</p>
+              </div>
+            </div>
+            <button
+              onClick={handleLogout}
+              aria-label="Cerrar sesión"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+            >
+              <LogOut size={15} />
+              <span className="hidden sm:inline">Salir</span>
+            </button>
+          </div>
         </header>
         <main className="flex-1 overflow-x-auto bg-slate-50 p-4 sm:p-6">
-          <Outlet />
+          {/* key = ruta: al navegar a otra sección el boundary se reinicia y sale de la pantalla de error. */}
+          <ErrorBoundary key={location.pathname}>
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
     </div>

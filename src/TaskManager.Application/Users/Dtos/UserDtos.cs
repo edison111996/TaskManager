@@ -21,7 +21,7 @@ public record CreateUserRequest(
     [Required] string FirstName,
     [Required] string LastName,
     [Required, EmailAddress] string Email,
-    [Required, MinLength(6)] string Password,
+    [Required, MinLength(8), RegularExpression(@"^(?=.*[A-Z])(?=.*\d).+$", ErrorMessage = "La contraseña debe tener al menos una mayúscula y un número.")] string Password,
     [Phone] string? Phone,
     List<Guid>? RoleIds);
 

@@ -5,6 +5,25 @@ const REQUEST_TIMEOUT_MS = 10000;
  * diferencia de un 401/404/500, que sí es una respuesta real del servidor. */
 export class NetworkError extends Error {}
 
+/** Error devuelto por el backend (respuesta HTTP no exitosa). A diferencia de un Error
+ * genérico conserva el código HTTP y, en validaciones, los mensajes por campo
+ * ({ email: ["Correo inválido."] }) para poder mostrarlos debajo de cada input. */
+export class ApiError extends Error {
+  readonly status: number;
+  readonly errors: Record<string, string[]>;
+
+  constructor(message: string, status: number, errors: Record<string, string[]> = {}) {
+    super(message);
+    this.status = status;
+    this.errors = errors;
+  }
+
+  /** Primer mensaje de cada campo, listo para asignarlo a los `error` de los Input. */
+  get fieldMessages(): Record<string, string> {
+    return Object.fromEntries(Object.entries(this.errors).map(([field, msgs]) => [field, msgs[0]]));
+  }
+}
+
 function fetchWithTimeout(input: string, init: RequestInit): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -96,7 +115,7 @@ async function authorizedFetch(path: string, options: ApiFetchOptions = {}): Pro
 
   if (!response.ok) {
     const errorBody = await response.json().catch(() => null);
-    throw new Error(errorBody?.message ?? `Error ${response.status}`);
+    throw new ApiError(errorBody?.message ?? `Error ${response.status}`, response.status, errorBody?.errors);
   }
 
   return response;

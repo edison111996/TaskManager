@@ -1,5 +1,7 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
@@ -22,7 +24,28 @@ builder.Services.AddOpenApi(options =>
 {
     options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
 });
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        // Por defecto, [ApiController] responde a los errores de validación de los DTOs
+        // ([Required], [EmailAddress]...) con su propio formato, que no trae "message" y
+        // por eso el front solo veía "Error 400". Lo unificamos con el formato del middleware
+        // de excepciones y agregamos "errors" (campo -> mensajes) para pintarlos bajo cada input.
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            var errors = context.ModelState
+                .Where(entry => entry.Value is { Errors.Count: > 0 })
+                .ToDictionary(
+                    entry => ToCamelCase(entry.Key),
+                    entry => entry.Value!.Errors
+                        .Select(e => string.IsNullOrWhiteSpace(e.ErrorMessage) ? "Valor inválido." : e.ErrorMessage)
+                        .ToArray());
+
+            var message = errors.Values.SelectMany(m => m).FirstOrDefault() ?? "Hay errores de validación.";
+
+            return new BadRequestObjectResult(new { status = 400, message, errors });
+        };
+    });
 
 var uploadsFolder = Path.Combine(builder.Environment.ContentRootPath, "wwwroot", "uploads", "forms");
 
@@ -55,6 +78,28 @@ builder.Services
 
 builder.Services.AddAuthorization();
 
+// Límite de intentos en login/registro: frena la prueba masiva de contraseñas (fuerza bruta).
+// Por IP: 10 intentos por minuto; al pasarse responde 429 con el mismo formato JSON de los demás errores.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("login", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+        httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0
+        }));
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.ContentType = "application/json";
+        await context.HttpContext.Response.WriteAsync(
+            "{\"status\":429,\"message\":\"Demasiados intentos. Espera un minuto e inténtalo de nuevo.\"}",
+            cancellationToken);
+    };
+});
+
 const string FrontendCorsPolicy = "Frontend";
 builder.Services.AddCors(options =>
 {
@@ -86,6 +131,16 @@ if (app.Environment.IsDevelopment())
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
+// Cabeceras de seguridad básicas: evitan que el navegador "adivine" tipos de archivo,
+// que la API se muestre dentro de un iframe ajeno y que se filtre la URL como referrer.
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    context.Response.Headers["X-Frame-Options"] = "DENY";
+    context.Response.Headers["Referrer-Policy"] = "no-referrer";
+    await next();
+});
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
@@ -95,9 +150,15 @@ app.UseStaticFiles(); // sirve wwwroot/uploads/forms/... como /uploads/forms/...
 
 app.UseCors(FrontendCorsPolicy);
 
+app.UseRateLimiter();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
 
 app.Run();
+
+// "FirstName" -> "firstName": así coincide con los nombres de campo que usa el front.
+static string ToCamelCase(string key) =>
+    string.IsNullOrEmpty(key) ? key : char.ToLowerInvariant(key[0]) + key[1..];

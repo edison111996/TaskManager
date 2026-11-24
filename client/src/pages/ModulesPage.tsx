@@ -1,39 +1,35 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { listModules, deleteModule, type ModuleDto } from "../api/modules";
 import { Card } from "../components/Card";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { LoadingState } from "../components/LoadingState";
+import { ErrorState } from "../components/ErrorState";
+import { useFetch } from "../hooks/useFetch";
 import { useToast } from "../components/ToastProvider";
+import { useConfirm } from "../components/ConfirmProvider";
 import { ACTION_LABELS } from "../utils/permissionAction";
 import { useAuth } from "../auth/AuthContext";
 import { ModuleFormModal } from "./ModuleFormModal";
 
 export function ModulesPage() {
   const { showToast } = useToast();
+  const confirm = useConfirm();
   const { hasPermission } = useAuth();
   const canCreate = hasPermission("Modules:Create");
   const canEdit = hasPermission("Modules:Edit");
   const canDelete = hasPermission("Modules:Delete");
-  const [modules, setModules] = useState<ModuleDto[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: modules = [], isLoading, error, reload: loadModules, retry } = useFetch(
+    listModules,
+    "No se pudo cargar la lista de módulos.",
+  );
   const [editingModule, setEditingModule] = useState<ModuleDto | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  function loadModules() {
-    listModules()
-      .then(setModules)
-      .catch(() => setError("No se pudo cargar la lista de módulos."))
-      .finally(() => setIsLoading(false));
-  }
-
-  useEffect(loadModules, []);
-
   async function handleDelete(module: ModuleDto) {
-    if (!confirm(`¿Eliminar el módulo "${module.name}"? Esto también elimina sus permisos.`)) return;
+    if (!(await confirm({ message: `¿Eliminar el módulo "${module.name}"? Esto también elimina sus permisos.` }))) return;
     setDeletingId(module.id);
     try {
       await deleteModule(module.id);
@@ -47,6 +43,7 @@ export function ModulesPage() {
   }
 
   if (isLoading) return <LoadingState />;
+  if (error && modules.length === 0) return <ErrorState message={error} onRetry={retry} />;
 
   return (
     <div className="space-y-4">
@@ -58,8 +55,6 @@ export function ModulesPage() {
           </Button>
         )}
       </div>
-
-      {error && <p className="text-red-600">{error}</p>}
 
       {modules.length === 0 && (
         <p className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-400">

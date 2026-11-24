@@ -6,10 +6,12 @@ import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { LoadingState } from "../components/LoadingState";
 import { useToast } from "../components/ToastProvider";
+import { useConfirm } from "../components/ConfirmProvider";
 import { listForms, deleteForm, setFormPublished, type FormTemplateDto } from "../api/forms";
 
 export function FormsAdminPage() {
   const { showToast } = useToast();
+  const confirm = useConfirm();
   const [forms, setForms] = useState<FormTemplateDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +40,7 @@ export function FormsAdminPage() {
   }
 
   async function handleDelete(form: FormTemplateDto) {
-    if (!confirm(`¿Eliminar el formulario "${form.title}"?`)) return;
+    if (!(await confirm({ message: `¿Eliminar el formulario "${form.title}"?` }))) return;
     setBusyId(form.id);
     try {
       await deleteForm(form.id);

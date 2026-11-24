@@ -1,43 +1,37 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { Table } from "../components/Table";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { LoadingState } from "../components/LoadingState";
+import { ErrorState } from "../components/ErrorState";
+import { useFetch } from "../hooks/useFetch";
 import { useToast } from "../components/ToastProvider";
+import { useConfirm } from "../components/ConfirmProvider";
 import { useAuth } from "../auth/AuthContext";
 import { listUsers, deleteUser, type UserDto } from "../api/users";
-import { listRoles, type RoleDto } from "../api/roles";
+import { listRoles } from "../api/roles";
 import { UserFormModal } from "./UserFormModal";
 
 export function UsersPage() {
   const { showToast } = useToast();
+  const confirm = useConfirm();
   const { hasPermission } = useAuth();
   const canCreate = hasPermission("Users:Create");
   const canEdit = hasPermission("Users:Edit");
   const canDelete = hasPermission("Users:Delete");
-  const [users, setUsers] = useState<UserDto[]>([]);
-  const [roles, setRoles] = useState<RoleDto[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: users = [], isLoading, error, reload: loadUsers, retry } = useFetch(
+    listUsers,
+    "No se pudo cargar la lista de usuarios.",
+  );
+  // Los roles solo alimentan el formulario: si fallan, la página sigue funcionando.
+  const { data: roles = [] } = useFetch(listRoles);
   const [editingUser, setEditingUser] = useState<UserDto | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  function loadUsers() {
-    listUsers()
-      .then(setUsers)
-      .catch(() => setError("No se pudo cargar la lista de usuarios."))
-      .finally(() => setIsLoading(false));
-  }
-
-  useEffect(() => {
-    loadUsers();
-    listRoles().then(setRoles).catch(() => undefined);
-  }, []);
-
   async function handleDelete(user: UserDto) {
-    if (!confirm(`¿Eliminar a ${user.firstName} ${user.lastName}?`)) return;
+    if (!(await confirm({ message: `¿Eliminar a ${user.firstName} ${user.lastName}?` }))) return;
     setDeletingId(user.id);
     try {
       await deleteUser(user.id);
@@ -58,6 +52,7 @@ export function UsersPage() {
   }
 
   if (isLoading) return <LoadingState />;
+  if (error && users.length === 0) return <ErrorState message={error} onRetry={retry} />;
 
   return (
     <div className="space-y-4">
@@ -69,8 +64,6 @@ export function UsersPage() {
           </Button>
         )}
       </div>
-
-      {error && <p className="text-red-600">{error}</p>}
 
       <Table
         rows={users}

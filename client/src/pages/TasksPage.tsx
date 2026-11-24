@@ -6,6 +6,7 @@ import { StatusBadge } from "../components/StatusBadge";
 import { Button } from "../components/Button";
 import { LoadingState } from "../components/LoadingState";
 import { useToast } from "../components/ToastProvider";
+import { useConfirm } from "../components/ConfirmProvider";
 import { useAuth } from "../auth/AuthContext";
 import { listTasks, deleteTask, exportTasksPdf, type TaskItemDto } from "../api/tasks";
 import { listAssignableUsers, type UserLookupDto } from "../api/users";
@@ -21,6 +22,7 @@ const VIEW_ICONS: Record<ViewMode, typeof List> = { list: List, calendar: Calend
 
 export function TasksPage() {
   const { showToast } = useToast();
+  const confirm = useConfirm();
   const { hasPermission } = useAuth();
   const [tasks, setTasks] = useState<TaskItemDto[]>([]);
   const [users, setUsers] = useState<UserLookupDto[]>([]);
@@ -51,7 +53,7 @@ export function TasksPage() {
   }, []);
 
   async function handleDelete(task: TaskItemDto) {
-    if (!confirm(`¿Eliminar la tarea "${task.title}"?`)) return;
+    if (!(await confirm({ message: `¿Eliminar la tarea "${task.title}"?` }))) return;
     setDeletingId(task.id);
     try {
       await deleteTask(task.id);
